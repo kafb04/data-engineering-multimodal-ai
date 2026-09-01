@@ -1,1 +1,7 @@
-
+# Ambiente testado com Python 3.12.13.
+# Apenas dependências diretas; as transitivas são resolvidas pelo pip.
+mne==1.12.1
+numpy==2.5.2
+pandas==3.0.5
+matplotlib==3.11.1
+notebook==7.6.2

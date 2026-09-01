@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Download incompleto do navegador, nao faz parte da entrega
+*.crdownload
+
+.DS_Store

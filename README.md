@@ -105,35 +105,34 @@ qualidade junto com os dados.
 
 ## 8. Limitações conhecidas
 
-**Viés de seleção e cobertura**
+### Específicas deste conjunto
 
-- 109 voluntários saudáveis, sem dados demográficos publicados — não há como avaliar
-  representatividade por idade, sexo ou etnia.
-- Nenhum paciente da população-alvo (pós-AVC, ELA, lesão medular): modelos validados aqui
-  não têm generalização demonstrada para o uso clínico que motivam.
-
-**Qualidade**
-
-- 6 sujeitos com inconsistências conhecidas de anotação e duração de trials — `S088`,
-  `S089`, `S092`, `S100`, `S104`, `S106` (Kim et al., 2024) — **não sinalizados nos
-  metadados oficiais**. Estão listados em `PROBLEMATIC_SUBJECTS` e são filtrados ao
-  montar a amostra no notebook.
-- As anotações marcam apenas eventos; não há rótulo de qualidade nem marcação de artefato
-  (piscadas, movimento, eletrodo solto).
-- As runs de baseline têm estrutura diferente (~61 s e um evento contínuo, contra ~125 s e
-  30 eventos), gerando valores ausentes nas contagens por classe.
-
-**Período e protocolo**
-
-- Conjunto publicado em 2009, com instrumentação BCI2000 da década de 2000: eletrodos e
-  protocolo defasados frente a headsets atuais.
-- **Datas reais de aquisição indisponíveis**: os 25 arquivos da amostra, de 5 sujeitos
-  diferentes, trazem todos `meas_date = 2009-08-12` — carimbo de conversão em lote, não de
-  coleta. Não há como avaliar o período real nem eventual deriva entre sessões.
-- Trials curtos e em ambiente laboratorial controlado, o que tende a inflar a acurácia
-  frente ao uso real.
-- Sessão única por sujeito: impossível avaliar estabilidade entre sessões, o principal
+- **Sem variáveis demográficas.** Não há idade, sexo, etnia nem lateralidade dos 109
+  voluntários. A lateralidade é a mais custosa: ela condiciona a assimetria esperada em
+  tarefas motoras, e sem ela não há como controlar esse fator.
+- **6 dos 109 sujeitos (5,5 %) têm anotações inconsistentes** — `S088`, `S089`, `S092`,
+  `S100`, `S104`, `S106` (Kim et al., 2024) — e não estão sinalizados nos metadados
+  oficiais. Ficam em `PROBLEMATIC_SUBJECTS` e são filtrados no notebook.
+- **Datas reais de aquisição indisponíveis.** Os 25 arquivos da amostra, de 5 sujeitos
+  diferentes, trazem todos `meas_date = 2009-08-12` — carimbo de conversão em lote. Não há
+  como avaliar o período de coleta.
+- **Sessão única por sujeito**, o que impede medir estabilidade entre sessões — o principal
   obstáculo prático de BCIs baseadas em imagética.
+- **Runs de baseline com estrutura diferente** das de tarefa (~61 s e um evento contínuo,
+  contra ~125 s e 30 eventos), gerando valores ausentes nas contagens por classe.
+- **160 Hz de amostragem** limitam a análise a menos de 80 Hz (Nyquist). Suficiente para as
+  bandas mu e beta, que sustentam a decodificação motora, mas inviabiliza gama alta.
+
+### Inerentes ao gênero, não a este conjunto
+
+Valem para praticamente todos os conjuntos abertos de imagética motora, e não pesam na
+avaliação FAIR — mas condicionam o que se pode concluir:
+
+- Apenas voluntários saudáveis, sem pacientes da população-alvo (pós-AVC, ELA, lesão
+  medular). Desempenho aqui não demonstra generalização clínica.
+- Trials curtos (~4,1 s) em ambiente laboratorial controlado, o que tende a superestimar a
+  acurácia frente ao uso real, com ruído, movimento e fadiga.
+- Anotações marcam apenas eventos, sem rótulo de qualidade nem marcação de artefato.
 
 ## 9. Ambiente reprodutível
 

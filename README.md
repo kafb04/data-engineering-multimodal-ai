@@ -57,7 +57,7 @@ Paradigma temporal do trial: cruz de fixação + bipe em `t=0`; seta de indicaç
 - Formato **GDF** (também disponível em `.mat` no BNCI). Os rótulos da sessão de avaliação,
   retidos durante a competição, hoje são públicos.
 
-Amostra usada na EDA: 3 sujeitos (ver [`notebooks/02_eda_bci_iv_2a.ipynb`](notebooks/02_eda_bci_iv_2a.ipynb)).
+Amostra usada na EDA: 3 sujeitos (ver [`notebooks/01_eda_bci_iv_2a.ipynb`](notebooks/01_eda_bci_iv_2a.ipynb)).
 
 ## 5. Riscos de privacidade
 
@@ -151,10 +151,9 @@ O **sinal bruto** fica apenas no cache. O que é versionado (seção 12) é some
 Com o ambiente ativado:
 
 ```powershell
-jupyter notebook notebooks\02_eda_bci_iv_2a.ipynb   # EDA (amostra de 3 sujeitos)
-jupyter notebook notebooks\03_load_bci_iv_2a.ipynb  # carga completa -> DataLoader PyTorch
-python -m src.ingest                                 # gera a camada analítica (Parquet)
-jupyter notebook notebooks\04_camada_analitica_2a.ipynb  # consultas DuckDB + benchmark
+jupyter notebook notebooks\01_eda_bci_iv_2a.ipynb        # EDA (amostra de 3 sujeitos)
+python -m src.ingest                                     # gera a camada analítica (Parquet)
+jupyter notebook notebooks\02_camada_analitica_2a.ipynb  # consultas DuckDB + benchmark
 ```
 
 ## 12. Camada analítica (esquema estrela)
@@ -162,7 +161,7 @@ jupyter notebook notebooks\04_camada_analitica_2a.ipynb  # consultas DuckDB + be
 A partir dos **metadados** do 2a (sem o sinal bruto) é construída uma camada analítica em
 **Parquet**, consultável com **DuckDB**. Ingestão em [`src/ingest.py`](src/ingest.py);
 consultas e benchmark em
-[`notebooks/04_camada_analitica_2a.ipynb`](notebooks/04_camada_analitica_2a.ipynb).
+[`notebooks/02_camada_analitica_2a.ipynb`](notebooks/02_camada_analitica_2a.ipynb).
 
 **Grão da tabela fato `fact_trial`: uma linha = um trial de imagética motora**
 (5.184 = 9 sujeitos × 2 sessões × 288). Tipos explícitos, identificadores como texto:
@@ -208,9 +207,8 @@ agregação **~40× mais rápida** no DuckDB.
 │   └── ingest.py                        # ingestão -> tabelas do esquema estrela (Parquet)
 ├── data/processed/                       # Parquet + CSV da camada analítica (versionados)
 ├── notebooks/
-│   ├── 02_eda_bci_iv_2a.ipynb           # EDA do 2a
-│   ├── 03_load_bci_iv_2a.ipynb          # download -> preprocess -> DataLoader
-│   └── 04_camada_analitica_2a.ipynb     # consultas DuckDB + benchmark
+│   ├── 01_eda_bci_iv_2a.ipynb           # EDA do 2a
+│   └── 02_camada_analitica_2a.ipynb     # consultas DuckDB + benchmark
 └── archive/
     ├── README.md                        # nota sobre o material arquivado
     └── aula01_eegmmidb/                  # entrega da Aula 01 (eegmmidb), preservada

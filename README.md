@@ -122,8 +122,9 @@ disponíveis no [braindecode](https://braindecode.org/). Protocolo padrão: **wi
 
 ## 9. Ambiente reprodutível
 
-Python 3.12.13, com as dependências em [`requirements.txt`](requirements.txt): `mne`, `numpy`,
-`pandas`, `matplotlib`, `notebook` e — para o 2a — `moabb`, `braindecode` e `torch`.
+Python 3.12.13, com as dependências **fixadas** em [`requirements.txt`](requirements.txt):
+`mne`, `numpy`, `pandas`, `matplotlib`, `notebook`; para o 2a, `moabb`, `braindecode` e
+`torch`; e para a camada analítica, `duckdb` e `pyarrow`.
 
 ```powershell
 uv venv venv --python 3.12
@@ -142,6 +143,9 @@ from braindecode.datasets import MOABBDataset
 MOABBDataset(dataset_name="BNCI2014_001", subject_ids=[1])  # baixa e carrega
 ```
 
+O **sinal bruto** fica apenas no cache. O que é versionado (seção 12) é somente a tabela de
+**metadados** de trial — rótulos, tempos e identificadores, sem qualquer amostra de EEG.
+
 ## 11. Como executar
 
 Com o ambiente ativado:
@@ -149,17 +153,64 @@ Com o ambiente ativado:
 ```powershell
 jupyter notebook notebooks\02_eda_bci_iv_2a.ipynb   # EDA (amostra de 3 sujeitos)
 jupyter notebook notebooks\03_load_bci_iv_2a.ipynb  # carga completa -> DataLoader PyTorch
+python -m src.ingest                                 # gera a camada analítica (Parquet)
+jupyter notebook notebooks\04_camada_analitica_2a.ipynb  # consultas DuckDB + benchmark
 ```
 
-## 12. Estrutura
+## 12. Camada analítica (esquema estrela)
+
+A partir dos **metadados** do 2a (sem o sinal bruto) é construída uma camada analítica em
+**Parquet**, consultável com **DuckDB**. Ingestão em [`src/ingest.py`](src/ingest.py);
+consultas e benchmark em
+[`notebooks/04_camada_analitica_2a.ipynb`](notebooks/04_camada_analitica_2a.ipynb).
+
+**Grão da tabela fato `fact_trial`: uma linha = um trial de imagética motora**
+(5.184 = 9 sujeitos × 2 sessões × 288). Tipos explícitos, identificadores como texto:
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `trial_id` | TEXT (PK) | chave natural, ex. `A04_0train_run_1_t33` |
+| `subject_id` | TEXT (FK) | → `dim_subject` |
+| `session_id` | TEXT (FK) | → `dim_session` |
+| `run_id` | TEXT (FK) | → `dim_run` |
+| `class_id` | SMALLINT (FK) | → `dim_class` |
+| `trial_in_run` | SMALLINT | índice do trial no run (0–47) |
+| `onset_s` | DOUBLE | início do trial na gravação |
+| `duration_s` | DOUBLE | janela de imagética (4,0 s) |
+| `n_samples` | INTEGER | amostras da época (1.000) |
+
+**Dimensões:**
+
+| dimensão | chave | atributos |
+|---|---|---|
+| `dim_subject` (paciente) | `subject_id` | `age`, `sex`, `handedness` — **NULL** (2a não publica demografia) |
+| `dim_class` (rótulo) | `class_id` | `class_name`, `body_part`, `paradigm` |
+| `dim_session` (tempo) | `session_id` | `session_role` (train/test), `recording_day` (NULL) |
+| `dim_run` | `run_id` | `run_number` |
+
+**Nulos verdadeiros:** demografia e data de gravação, não divulgadas no 2a, são `NULL` — nunca
+sentinelas como `-1`/`999`.
+
+**Fora do Parquet:** o **sinal EEG bruto** (22 canais × 1.000 amostras por trial), as gravações
+contínuas e os arquivos GDF. Só metadados de trial + rótulos entram. *Modalidade* é constante
+(EEG) — dimensão degenerada, não modelada; viraria tabela se entrassem MEG/EOG/áudio.
+
+**CSV vs Parquet** (mesma `fact_trial`): o Parquet ficou **~8× menor** (37,7 vs 299,9 KiB) e a
+agregação **~40× mais rápida** no DuckDB.
+
+## 13. Estrutura
 
 ```
 .
 ├── README.md                            # esta ficha técnica
 ├── requirements.txt                     # dependências fixadas
+├── src/
+│   └── ingest.py                        # ingestão -> tabelas do esquema estrela (Parquet)
+├── data/processed/                       # Parquet + CSV da camada analítica (versionados)
 ├── notebooks/
 │   ├── 02_eda_bci_iv_2a.ipynb           # EDA do 2a
-│   └── 03_load_bci_iv_2a.ipynb          # download -> preprocess -> DataLoader
+│   ├── 03_load_bci_iv_2a.ipynb          # download -> preprocess -> DataLoader
+│   └── 04_camada_analitica_2a.ipynb     # consultas DuckDB + benchmark
 └── archive/
     ├── README.md                        # nota sobre o material arquivado
     └── aula01_eegmmidb/                  # entrega da Aula 01 (eegmmidb), preservada

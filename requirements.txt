@@ -8,6 +8,10 @@ notebook==7.6.2
 
 # BCI IV 2a via MOABB/braindecode (carrega o dataset e entrega tensores PyTorch).
 # Puxam torch, skorch e scikit-learn como transitivas.
-moabb
-braindecode
-torch
+moabb==1.7.2
+braindecode==1.8.1
+torch==2.14.0
+
+# Camada analítica: Parquet (pyarrow) consultado com DuckDB.
+duckdb==1.5.5
+pyarrow==25.0.1

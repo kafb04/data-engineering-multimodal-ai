@@ -1,143 +1,129 @@
-# EEG Motor Movement/Imagery Dataset — ficha técnica e EDA
+# BCI Competition IV 2a — ficha técnica e EDA
 
-Entrega da Aula 01 (Ambiente, Datasets Abertos e Princípios FAIR).
+Dataset da tese (**decodificação da intenção de movimento**): imagética motora de 4 classes
+em sujeitos saudáveis, carregado em formato pronto para ML via
+[MOABB](https://moabb.neurotechx.com/) / [braindecode](https://braindecode.org/).
+
+> A entrega anterior baseada no eegmmidb (EDF) foi arquivada em
+> [`archive/aula01_eegmmidb/`](archive/aula01_eegmmidb/). Este repositório passou a ser
+> exclusivamente sobre o BCI IV 2a.
 
 ## 1. Nome e fonte
 
-**EEG Motor Movement/Imagery Dataset (`eegmmidb`)**, versão 1.0.0 — PhysioNet.
-Depositado por Gerwin Schalk, publicado em 9 de setembro de 2009, coletado com o sistema
-BCI2000 (descrito em Schalk et al., 2004).
+**BCI Competition IV — dataset 2a** ("Graz data set A"), identificador
+[`001-2014`](http://bnci-horizon-2020.eu/database/data-sets) no BNCI Horizon 2020 e
+[`BNCI2014_001`](https://moabb.neurotechx.com/docs/generated/moabb.datasets.BNCI2014_001.html)
+no MOABB. Coletado no Institute of Neural Engineering (Laboratory of Brain-Computer
+Interfaces), TU Graz.
 
-- URL: <https://physionet.org/content/eegmmidb/1.0.0/>
-- DOI: [10.13026/C28G6P](https://doi.org/10.13026/C28G6P)
-- RRID: `SCR_007345`
-- Versão: **1.0.0** 
+- Descrição original: Brunner, Leeb, Müller-Putz, Schlögl & Pfurtscheller (2008).
+- Citação recomendada: Tangermann et al. (2012), *Review of the BCI Competition IV*,
+  Frontiers in Neuroscience — DOI [10.3389/fnins.2012.00055](https://doi.org/10.3389/fnins.2012.00055).
+- Fonte original da competição: <http://www.bbci.de/competition/iv/>
 
 ## 2. Licença
 
-**Open Data Commons Attribution License v1.0 (ODC-BY 1.0).** Permite uso, redistribuição e
-obras derivadas, inclusive comerciais, exigindo apenas atribuição da fonte. Não exige
-credenciamento nem login — o download é direto por HTTPS.
+**Creative Commons Attribution-NoDerivatives 4.0 (CC BY-ND 4.0)** (conforme BNCI Horizon /
+MOABB). Permite uso e redistribuição **do dataset original** com atribuição, mas a cláusula
+**ND (NoDerivatives)** proíbe distribuir versões modificadas/derivadas dos dados.
+
+> **Implicação prática:** não se deve versionar neste repositório uma versão processada
+> (filtrada, epocada, convertida) do 2a — isso seria um derivado. Por isso os dados **não
+> ficam no Git**; são baixados pelo MOABB no ambiente de cada pessoa (ver seção 10). Treinar
+> modelos e publicar resultados/figuras derivados da análise não é afetado.
 
 ## 3. Variáveis principais
 
 | Variável | Tipo | Formato / unidade | Faixa |
 |---|---|---|---|
-| Sinal EEG | contínuo | EDF+ 16 bits; `float64` em Volts no MNE | −376 a +595 µV (medido na amostra); σ ≈ 53 µV |
-| Canais | categórico | 64 eletrodos, sistema 10-10 | `Fc5.`…`Iz.` no arquivo bruto |
-| Frequência de amostragem | constante | Hz | 160 Hz |
-| Anotações | categórico | canal de eventos EDF+ | `T0` (repouso), `T1`, `T2` |
-| Duração por run | contínuo | segundos | ~61 s (baseline) / ~125 s (tarefa) |
-| Duração por trial | contínuo | segundos | ~4,1 s |
-| Sujeito | identificador | `S001`–`S109` | 109 valores |
-| Run | identificador | `R01`–`R14` | 14 por sujeito |
+| Sinal EEG | contínuo | GDF (BioSig); `float64` em Volts no MNE | ±100 µV (sensibilidade do amplificador) |
+| Canais EEG | categórico | 22 eletrodos (subconjunto 10-20) | `Fz`, `C3`, `Cz`, `C4`, … |
+| Canais EOG | categórico | 3 eletrodos monopolares (controle de artefato) | `EOG-left/central/right` |
+| Frequência de amostragem | constante | Hz | 250 Hz |
+| Filtragem (aquisição) | — | passa-banda + notch | 0,5–100 Hz; notch 50 Hz |
+| Classes | categórico | rótulo do trial | mão esquerda, mão direita, pés, língua |
+| Sessão | identificador | treino (`T`) / avaliação (`E`) | 2 por sujeito, dias diferentes |
+| Sujeito | identificador | `A01`–`A09` | 9 valores |
 
-Os nomes de canal vêm com sufixo de ponto (`Fc5.`) e exigem
-`mne.datasets.eegbci.standardize()` antes de qualquer análise espacial.
+Estrutura de cada sessão: **6 runs × 48 trials (12 por classe) = 288 trials**.
 
-Significado de `T1`/`T2` por run:
-
-| Runs | Tarefa | `T1` | `T2` |
-|---|---|---|---|
-| R01, R02 | linha de base (olhos abertos / fechados) | — | — |
-| R03, R07, R11 | execução motora real | mão esquerda | mão direita |
-| R04, R08, R12 | imagética motora | mão esquerda | mão direita |
-| R05, R09, R13 | execução motora real | ambas as mãos | ambos os pés |
-| R06, R10, R14 | imagética motora | ambas as mãos | ambos os pés |
+Paradigma temporal do trial: cruz de fixação + bipe em `t=0`; seta de indicação (cue) em
+`t=2 s` por 1,25 s; **imagética motora de `t≈2 s` até `t=6 s`** (~4 s de janela); pausa curta.
 
 ## 4. Tamanho
 
-- 109 sujeitos × 14 runs = **1.526 arquivos EDF+**
-- **~3,4 GB** descompactado (~1,9 GB comprimido), ~26 h de gravação
-- ~1,3 MB por arquivo de baseline, ~2,6 MB por run de tarefa
-- **~19,6 mil trials** (~15 por run de tarefa, ~180 por sujeito)
+- 9 sujeitos × 2 sessões × 288 trials = **5.184 trials** rotulados.
+- 4 classes balanceadas por desenho (72 trials por classe por sessão).
+- Formato **GDF** (também disponível em `.mat` no BNCI). Os rótulos da sessão de avaliação,
+  retidos durante a competição, hoje são públicos.
 
-Amostra usada nesta EDA: 5 sujeitos × 5 runs = 25 arquivos (~56 MB), com 150 trials `T1`,
-150 `T2` e 305 eventos `T0`.
+Amostra usada na EDA: 3 sujeitos (ver [`notebooks/02_eda_bci_iv_2a.ipynb`](notebooks/02_eda_bci_iv_2a.ipynb)).
 
 ## 5. Riscos de privacidade
 
-Desidentificado, mas **não anonimizado de forma irreversível**.
-
-Não há identificadores diretos nem dados demográficos — apenas o ID sequencial
-`S001`–`S109`. O acesso é aberto sem credenciamento, o que indica baixo risco na avaliação
-dos curadores.
-
-O risco residual é o **EEG fingerprinting**: padrões espectrais individuais são estáveis o
-bastante para reidentificar uma pessoa entre gravações. A reidentificação exigiria que o
-atacante já tivesse uma gravação de EEG rotulada do mesmo indivíduo, então na prática o
-risco acadêmico é baixo — mas o sinal bruto não deve ser tratado como dado anônimo em
-pipelines que o combinem com outras fontes.
+Desidentificado (sujeitos `A01`–`A09`, sem demografia publicada). Não há identificadores
+diretos. O risco residual é o **EEG fingerprinting** — padrões espectrais individuais são
+estáveis o bastante para reidentificação entre gravações —, mas exigiria que o atacante já
+tivesse um EEG rotulado do mesmo indivíduo, então o risco acadêmico é baixo. Ainda assim, o
+sinal bruto não deve ser tratado como anônimo em pipelines que o combinem com outras fontes.
 
 ## 6. Uso clínico e ML
 
-**Aplicação.** BCI para reabilitação motora pós-AVC (imagética realimentada dirigindo
-neuroplasticidade) e comunicação assistiva em pacientes com deficiência motora severa
-(ELA, lesão medular alta).
+**Aplicação.** BCI de imagética motora para reabilitação e comunicação assistiva em pessoas
+com deficiência motora severa (AVC, ELA, lesão medular). É o benchmark mais usado da área.
 
 **Pergunta de pesquisa.** É possível decodificar a intenção de movimento a partir do EEG —
-identificar qual tarefa a pessoa está imaginando, sem movimento executado? E quanto a
-modulação da imagética é mais fraca que a da execução real?
+qual dos 4 movimentos a pessoa está imaginando — sem movimento executado?
 
-**Entradas.** Épocas de `64 canais × tempo` (~4 s a 160 Hz ≈ 656 amostras por canal), com
+**Entradas.** Épocas de `22 canais × tempo` (~4 s a 250 Hz ≈ 1.000 amostras por canal), com
 foco nos canais motores C3/Cz/C4 e nas bandas mu (8–12 Hz) e beta (13–30 Hz).
 
-**Alvo.** A classe da tarefa no trial: `T1` vs. `T2` (ex.: mão esquerda vs. direita), ou
-tarefa vs. repouso (`T0`).
+**Alvo.** A classe do trial: mão esquerda, mão direita, pés ou língua (4 classes).
 
-**Métodos já relatados.** CSP + LDA (baseline clássico de BCI), classificadores
-Riemannianos (matrizes de covariância, tangent space), CNNs para EEG (EEGNet,
-ShallowConvNet) e híbridos CNN+LSTM / Transformers. O dataset é um dos benchmarks padrão
-do [MOABB](https://moabb.neurotechx.com/docs/generated/moabb.datasets.PhysionetMI.html).
+**Métodos já relatados.** CSP + LDA (baseline clássico), classificadores Riemannianos
+(covariância / tangent space) e CNNs para EEG (EEGNet, ShallowConvNet, Deep4Net) — todos
+disponíveis no [braindecode](https://braindecode.org/). Protocolo padrão: **within-subject**
+(treina na sessão `T`, testa na `E`); estudos modernos também exploram **cross-subject**.
 
 ## 7. Avaliação FAIR
 
 | Princípio | Nota (1–5) | Justificativa |
 |---|:---:|---|
-| Findable | 5 | Dois identificadores persistentes: DOI [10.13026/C28G6P](https://doi.org/10.13026/C28G6P) e RRID `SCR_007345`. URL versionada (`/content/eegmmidb/1.0.0/`), com metadados descritivos completos — título, autor, data de publicação, versão, licença e citação. Indexado no MOABB como [`PhysionetMI`](https://moabb.neurotechx.com/docs/generated/moabb.datasets.PhysionetMI.html), portanto localizável por ferramenta e não só por busca textual. |
-| Accessible | 5 | HTTPS aberto, sem login, credenciamento ou DUA — confirmado ao baixar os 25 arquivos da amostra sem cabeçalho de autenticação (seção 10). Os metadados e a listagem de arquivos permanecem acessíveis sem baixar os dados, atendendo A2. |
-| Interoperable | 4 | EDF+ é formato aberto e padrão em eletrofisiologia, lido por MNE, EEGLAB e FieldTrip sem conversão. Perde 1 ponto por três lacunas **verificadas nos arquivos**: (a) não segue [BIDS-EEG](https://bids-specification.readthedocs.io/) — não há `dataset_description.json`, `participants.tsv` nem `*_events.tsv`; (b) os nomes de canal vêm como `Fc5.`, `C3..` e só viram `FC5`/`C3` após `eegbci.standardize` (ver `load_raw` no notebook); (c) **não há coordenadas de eletrodo** — `raw.info["dig"]` é `None` e a posição de C3 é `[nan, nan, nan]`, de modo que qualquer análise espacial depende de um template externo. |
-| Reusable | 4 | Licença ODC-BY 1.0 declarada de forma explícita, proveniência documentada (BCI2000, Schalk et al., 2004) e protocolo experimental descrito. Perde 1 ponto por: (a) os 6 sujeitos com anotações inconsistentes **não estarem sinalizados nos metadados oficiais** — constam apenas na literatura secundária (Kim et al., 2024); (b) ausência de variáveis demográficas, inclusive **lateralidade**, que condiciona a interpretação de tarefas motoras; (c) **não haver changelog nem versão anterior** — só a 1.0.0, sem registro de correções. |
+| Findable | 5 | DOI [10.3389/fnins.2012.00055](https://doi.org/10.3389/fnins.2012.00055), id persistente `001-2014` no BNCI Horizon e indexação no MOABB como [`BNCI2014_001`](https://moabb.neurotechx.com/docs/generated/moabb.datasets.BNCI2014_001.html) — localizável por ferramenta, não só por busca textual. |
+| Accessible | 5 | Download aberto por HTTPS no BNCI/TU Graz, sem login nem DUA, e carga em uma linha via MOABB. Metadados descritos na página do dataset. |
+| Interoperable | 4 | GDF é formato aberto de eletrofisiologia (BioSig), lido por MNE/MOABB sem conversão. Perde 1 ponto por não seguir [BIDS-EEG](https://bids-specification.readthedocs.io/) e por não trazer coordenadas de eletrodo padronizadas (a montagem depende de template externo). |
+| Reusable | 3 | Proveniência bem documentada (TU Graz, protocolo detalhado) e licença explícita, **mas a cláusula ND da CC BY-ND 4.0 restringe a redistribuição de versões derivadas** dos dados — limitação real de reúso. Some-se a ausência de variáveis demográficas (idade, sexo, lateralidade). |
 
-**Média: 4,5 / 5.** As perdas se concentram em *interoperability* e *reusability* e têm a
-mesma raiz: o dataset é de 2004 e antecede o BIDS e a prática de publicar notas de
-qualidade junto com os dados.
+**Média: 4,25 / 5.** As perdas se concentram em *interoperability* (pré-BIDS) e
+*reusability* (licença ND e falta de demografia).
 
 ## 8. Limitações conhecidas
 
 ### Específicas deste conjunto
 
-- **Sem variáveis demográficas.** Não há idade, sexo, etnia nem lateralidade dos 109
-  voluntários. A lateralidade é a mais custosa: ela condiciona a assimetria esperada em
-  tarefas motoras, e sem ela não há como controlar esse fator.
-- **6 dos 109 sujeitos (5,5 %) têm anotações inconsistentes** — `S088`, `S089`, `S092`,
-  `S100`, `S104`, `S106` (Kim et al., 2024) — e não estão sinalizados nos metadados
-  oficiais. Ficam em `PROBLEMATIC_SUBJECTS` e são filtrados no notebook.
-- **Datas reais de aquisição indisponíveis.** Os 25 arquivos da amostra, de 5 sujeitos
-  diferentes, trazem todos `meas_date = 2009-08-12` — carimbo de conversão em lote. Não há
-  como avaliar o período de coleta.
-- **Sessão única por sujeito**, o que impede medir estabilidade entre sessões — o principal
-  obstáculo prático de BCIs baseadas em imagética.
-- **Runs de baseline com estrutura diferente** das de tarefa (~61 s e um evento contínuo,
-  contra ~125 s e 30 eventos), gerando valores ausentes nas contagens por classe.
-- **160 Hz de amostragem** limitam a análise a menos de 80 Hz (Nyquist). Suficiente para as
-  bandas mu e beta, que sustentam a decodificação motora, mas inviabiliza gama alta.
+- **Apenas 9 sujeitos.** Poucos sujeitos limitam estudos de generalização cross-subject e
+  pré-treino — em compensação, há ~576 trials por sujeito, favorecendo o protocolo
+  within-subject.
+- **Licença CC BY-ND 4.0.** A cláusula NoDerivatives impede publicar/redistribuir uma versão
+  processada dos dados (por isso o repo não versiona os dados).
+- **Artefatos de EOG.** Há 3 canais de EOG justamente porque o piscar/movimento ocular
+  contamina o EEG frontal; a remoção de artefato é parte esperada do pipeline.
+- **Sem variáveis demográficas** (idade, sexo, lateralidade) — a lateralidade condiciona a
+  assimetria esperada em tarefas motoras e não pode ser controlada.
+- **Apenas 2 sessões** por sujeito (treino/avaliação), o que limita a análise de estabilidade
+  entre múltiplos dias.
 
 ### Inerentes ao gênero, não a este conjunto
 
-Valem para praticamente todos os conjuntos abertos de imagética motora, e não pesam na
-avaliação FAIR — mas condicionam o que se pode concluir:
-
-- Apenas voluntários saudáveis, sem pacientes da população-alvo (pós-AVC, ELA, lesão
-  medular). Desempenho aqui não demonstra generalização clínica.
-- Trials curtos (~4,1 s) em ambiente laboratorial controlado, o que tende a superestimar a
+- Apenas voluntários saudáveis, sem pacientes da população-alvo (AVC, ELA, lesão medular).
+  Desempenho aqui não demonstra generalização clínica.
+- Trials curtos (~4 s) em ambiente laboratorial controlado, o que tende a superestimar a
   acurácia frente ao uso real, com ruído, movimento e fadiga.
-- Anotações marcam apenas eventos, sem rótulo de qualidade nem marcação de artefato.
 
 ## 9. Ambiente reprodutível
 
-Python 3.12.13, com as dependências fixadas em [`requirements.txt`](requirements.txt):
-`mne`, `numpy`, `pandas`, `matplotlib` e `notebook`.
+Python 3.12.13, com as dependências em [`requirements.txt`](requirements.txt): `mne`, `numpy`,
+`pandas`, `matplotlib`, `notebook` e — para o 2a — `moabb`, `braindecode` e `torch`.
 
 ```powershell
 uv venv venv --python 3.12
@@ -147,23 +133,37 @@ uv pip install -r requirements.txt
 
 ## 10. Dados
 
-A amostra está versionada em `data/raw/`: 25 arquivos EDF+ (~56 MB) dos sujeitos S001–S005,
-runs R01, R03, R04, R08 e R12. 
+Os dados **não são versionados** neste repositório (a licença CC BY-ND desaconselha
+redistribuir derivados, e o volume é grande). O MOABB baixa o dataset para o cache local
+`~/mne_data` na primeira execução dos notebooks — requer internet:
 
-## 11. Como executar a EDA
+```python
+from braindecode.datasets import MOABBDataset
+MOABBDataset(dataset_name="BNCI2014_001", subject_ids=[1])  # baixa e carrega
+```
+
+## 11. Como executar
 
 Com o ambiente ativado:
 
 ```powershell
-jupyter notebook notebooks\01_eda_eegmmidb.ipynb
+jupyter notebook notebooks\02_eda_bci_iv_2a.ipynb   # EDA (amostra de 3 sujeitos)
+jupyter notebook notebooks\03_load_bci_iv_2a.ipynb  # carga completa -> DataLoader PyTorch
 ```
 
 ## 12. Estrutura
 
 ```
 .
-├── README.md                        # ficha técnica e instruções
-├── requirements.txt                 # dependências fixadas
-├── notebooks/01_eda_eegmmidb.ipynb  # EDA executável do zero
-└── data/raw/S0XX/S0XXR0Y.edf        # amostra
+├── README.md                            # esta ficha técnica
+├── requirements.txt                     # dependências fixadas
+├── notebooks/
+│   ├── 02_eda_bci_iv_2a.ipynb           # EDA do 2a
+│   └── 03_load_bci_iv_2a.ipynb          # download -> preprocess -> DataLoader
+└── archive/
+    ├── README.md                        # nota sobre o material arquivado
+    └── aula01_eegmmidb/                  # entrega da Aula 01 (eegmmidb), preservada
+        ├── README.md                    # datasheet FAIR do eegmmidb
+        ├── notebooks/01_eda_eegmmidb.ipynb
+        └── data/raw/S0XX/S0XXR0Y.edf     # amostra EDF
 ```

@@ -6,4 +6,7 @@ __pycache__/
 # Download incompleto do navegador, nao faz parte da entrega
 *.crdownload
 
+# Cache do MOABB/MNE (dados do BCI IV 2a baixados sob demanda; nao versionar)
+mne_data/
+
 .DS_Store

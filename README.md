@@ -8,6 +8,22 @@ em sujeitos saudáveis, carregado em formato pronto para ML via
 > [`archive/aula01_eegmmidb/`](archive/aula01_eegmmidb/). Este repositório passou a ser
 > exclusivamente sobre o BCI IV 2a.
 
+## Reprodução
+
+```powershell
+uv venv venv --python 3.12
+.\venv\Scripts\Activate.ps1
+uv pip install -r requirements.txt
+
+python -m src.ingest                                     # (re)gera data/processed/*.parquet
+jupyter notebook notebooks\01_eda_bci_iv_2a.ipynb        # EDA do 2a
+jupyter notebook notebooks\02_camada_analitica_2a.ipynb  # Parquet + DuckDB
+```
+
+O Parquet já vem versionado em `data/processed/`, então o **notebook 02 roda offline**.
+`src.ingest` e o **notebook 01** baixam o 2a via MOABB na 1ª vez (requer internet).
+Detalhes: ambiente (seção 9), dados (seção 10), esquema estrela (seção 11).
+
 ## 1. Nome e fonte
 
 **BCI Competition IV — dataset 2a** ("Graz data set A"), identificador
@@ -124,13 +140,7 @@ disponíveis no [braindecode](https://braindecode.org/). Protocolo padrão: **wi
 
 Python 3.12.13, com as dependências **fixadas** em [`requirements.txt`](requirements.txt):
 `mne`, `numpy`, `pandas`, `matplotlib`, `notebook`; para o 2a, `moabb`, `braindecode` e
-`torch`; e para a camada analítica, `duckdb` e `pyarrow`.
-
-```powershell
-uv venv venv --python 3.12
-.\venv\Scripts\Activate.ps1
-uv pip install -r requirements.txt
-```
+`torch`; e para a camada analítica, `duckdb` e `pyarrow`. Instalação no bloco **Reprodução** (topo).
 
 ## 10. Dados
 
@@ -143,25 +153,56 @@ from braindecode.datasets import MOABBDataset
 MOABBDataset(dataset_name="BNCI2014_001", subject_ids=[1])  # baixa e carrega
 ```
 
-O **sinal bruto** fica apenas no cache. O que é versionado (seção 12) é somente a tabela de
+O **sinal bruto** fica apenas no cache. O que é versionado (seção 11) é somente a tabela de
 **metadados** de trial — rótulos, tempos e identificadores, sem qualquer amostra de EEG.
 
-## 11. Como executar
-
-Com o ambiente ativado:
-
-```powershell
-jupyter notebook notebooks\01_eda_bci_iv_2a.ipynb        # EDA (amostra de 3 sujeitos)
-python -m src.ingest                                     # gera a camada analítica (Parquet)
-jupyter notebook notebooks\02_camada_analitica_2a.ipynb  # consultas DuckDB + benchmark
-```
-
-## 12. Camada analítica (esquema estrela)
+## 11. Camada analítica (esquema estrela)
 
 A partir dos **metadados** do 2a (sem o sinal bruto) é construída uma camada analítica em
 **Parquet**, consultável com **DuckDB**. Ingestão em [`src/ingest.py`](src/ingest.py);
 consultas e benchmark em
 [`notebooks/02_camada_analitica_2a.ipynb`](notebooks/02_camada_analitica_2a.ipynb).
+
+```mermaid
+erDiagram
+    dim_subject ||--o{ fact_trial : subject_id
+    dim_session ||--o{ fact_trial : session_id
+    dim_run     ||--o{ fact_trial : run_id
+    dim_class   ||--o{ fact_trial : class_id
+
+    fact_trial {
+        string   trial_id PK
+        string   subject_id FK
+        string   session_id FK
+        string   run_id FK
+        smallint class_id FK
+        smallint trial_in_run
+        double   onset_s
+        double   duration_s
+        int      n_samples
+    }
+    dim_subject {
+        string   subject_id PK
+        smallint age "NULL"
+        string   sex "NULL"
+        string   handedness "NULL"
+    }
+    dim_class {
+        smallint class_id PK
+        string   class_name
+        string   body_part
+        string   paradigm
+    }
+    dim_session {
+        string    session_id PK
+        string    session_role
+        timestamp recording_day "NULL"
+    }
+    dim_run {
+        string   run_id PK
+        smallint run_number
+    }
+```
 
 **Grão da tabela fato `fact_trial`: uma linha = um trial de imagética motora**
 (5.184 = 9 sujeitos × 2 sessões × 288). Tipos explícitos, identificadores como texto:
@@ -197,7 +238,7 @@ contínuas e os arquivos GDF. Só metadados de trial + rótulos entram. *Modalid
 **CSV vs Parquet** (mesma `fact_trial`): o Parquet ficou **~8× menor** (37,7 vs 299,9 KiB) e a
 agregação **~40× mais rápida** no DuckDB.
 
-## 13. Estrutura
+## 12. Estrutura
 
 ```
 .

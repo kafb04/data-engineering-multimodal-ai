@@ -5,7 +5,7 @@ em sujeitos saudáveis, carregado em formato pronto para ML via
 [MOABB](https://moabb.neurotechx.com/) / [braindecode](https://braindecode.org/).
 
 > A entrega anterior baseada no eegmmidb (EDF) foi arquivada em
-> [`archive/aula01_eegmmidb/`](archive/aula01_eegmmidb/). Este repositório passou a ser
+> [`archive_aula01/aula01_eegmmidb/`](archive_aula01/aula01_eegmmidb/). Este repositório passou a ser
 > exclusivamente sobre o BCI IV 2a.
 
 ## Reprodução
@@ -250,7 +250,7 @@ agregação **~40× mais rápida** no DuckDB.
 ├── notebooks/
 │   ├── 01_eda_bci_iv_2a.ipynb           # EDA do 2a
 │   └── 02_camada_analitica_2a.ipynb     # consultas DuckDB + benchmark
-└── archive/
+└── archive_aula01/                       # archive da Atividade 1 (Aula 01)
     ├── README.md                        # nota sobre o material arquivado
     └── aula01_eegmmidb/                  # entrega da Aula 01 (eegmmidb), preservada
         ├── README.md                    # datasheet FAIR do eegmmidb

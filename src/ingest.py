@@ -16,83 +16,86 @@ CLASS_MAP = {"left_hand": 0, "right_hand": 1, "feet": 2, "tongue": 3}
 BODY_PART = {"left_hand": "hand_left", "right_hand": "hand_right",
              "feet": "feet", "tongue": "tongue"}
 
-OUT_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
+OUTPUT_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
 
 
-def _windows(subject_ids):
+def _load_windows(subject_ids):
     # Janela de 4 s (offset 0); só para extrair metadados.
-    ds = MOABBDataset(dataset_name=DATASET_NAME, subject_ids=list(subject_ids))
+    dataset = MOABBDataset(dataset_name=DATASET_NAME, subject_ids=list(subject_ids))
     return create_windows_from_events(
-        ds, trial_start_offset_samples=0, trial_stop_offset_samples=0,
+        dataset, trial_start_offset_samples=0, trial_stop_offset_samples=0,
         preload=False, mapping=CLASS_MAP,
     )
 
 
-def build_fact(subject_ids=range(1, 10)) -> pd.DataFrame:
+def build_fact_table(subject_ids=range(1, 10)) -> pd.DataFrame:
     """Fato: uma linha por trial."""
-    wd = _windows(subject_ids)
-    rows = []
-    for d in wd.datasets:
-        desc = d.description
-        sfreq = d.raw.info["sfreq"]
-        subject = f"A{int(desc['subject']):02d}"
-        session = str(desc["session"])
-        run = f"run_{desc['run']}"
-        for _, r in d.metadata.iterrows():
-            start, stop = int(r["i_start_in_trial"]), int(r["i_stop_in_trial"])
-            trial_in_run = int(r["i_trial_in_dataset"])
-            rows.append({
+    windows = _load_windows(subject_ids)
+    trials = []
+    for recording in windows.datasets:  # cada recording = sujeito × sessão × run
+        info = recording.description
+        sampling_rate = recording.raw.info["sfreq"]
+        subject = f"A{int(info['subject']):02d}"
+        session = str(info["session"])
+        run = f"run_{info['run']}"
+        for _, trial in recording.metadata.iterrows():
+            start = int(trial["i_start_in_trial"])
+            stop = int(trial["i_stop_in_trial"])
+            trial_in_run = int(trial["i_trial_in_dataset"])
+            trials.append({
                 "trial_id": f"{subject}_{session}_{run}_t{trial_in_run:02d}",
                 "subject_id": subject,
                 "session_id": session,
                 "run_id": run,
-                "class_id": int(r["target"]),
+                "class_id": int(trial["target"]),
                 "trial_in_run": trial_in_run,
-                "onset_s": start / sfreq,
-                "duration_s": (stop - start) / sfreq,
+                "onset_s": start / sampling_rate,
+                "duration_s": (stop - start) / sampling_rate,
                 "n_samples": stop - start,
             })
 
-    return pd.DataFrame(rows).astype({
+    return pd.DataFrame(trials).astype({
         "trial_id": "string", "subject_id": "string", "session_id": "string",
         "run_id": "string", "class_id": "int16", "trial_in_run": "int16",
         "onset_s": "float64", "duration_s": "float64", "n_samples": "int32",
     })
 
 
-def build_dims(fact: pd.DataFrame):
+def build_dimension_tables(fact_table: pd.DataFrame):
     """Dimensões do esquema estrela."""
-    subjects = sorted(fact["subject_id"].unique())
-    n = len(subjects)
+    subjects = sorted(fact_table["subject_id"].unique())
+    n_subjects = len(subjects)
     # 2a não publica demografia -> NULL.
     dim_subject = pd.DataFrame({
         "subject_id": pd.array(subjects, dtype="string"),
-        "age": pd.array([pd.NA] * n, dtype="Int16"),
-        "sex": pd.array([pd.NA] * n, dtype="string"),
-        "handedness": pd.array([pd.NA] * n, dtype="string"),
+        "age": pd.array([pd.NA] * n_subjects, dtype="Int16"),
+        "sex": pd.array([pd.NA] * n_subjects, dtype="string"),
+        "handedness": pd.array([pd.NA] * n_subjects, dtype="string"),
     })
 
     dim_class = pd.DataFrame(
-        [{"class_id": c, "class_name": name, "body_part": BODY_PART[name],
-          "paradigm": "motor_imagery"} for name, c in CLASS_MAP.items()]
+        [{"class_id": class_id, "class_name": class_name,
+          "body_part": BODY_PART[class_name], "paradigm": "motor_imagery"}
+         for class_name, class_id in CLASS_MAP.items()]
     ).sort_values("class_id").astype({
         "class_id": "int16", "class_name": "string",
         "body_part": "string", "paradigm": "string",
     })
 
-    sessions = sorted(fact["session_id"].unique())
+    sessions = sorted(fact_table["session_id"].unique())
     dim_session = pd.DataFrame({
         "session_id": pd.array(sessions, dtype="string"),
         "session_role": pd.array(
-            ["train" if "train" in s else "test" for s in sessions], dtype="string"),
+            ["train" if "train" in session else "test" for session in sessions],
+            dtype="string"),
         # data de gravação não divulgada -> NULL.
         "recording_day": pd.array([pd.NaT] * len(sessions), dtype="datetime64[ns]"),
     })
 
-    runs = sorted(fact["run_id"].unique())
+    runs = sorted(fact_table["run_id"].unique())
     dim_run = pd.DataFrame({
         "run_id": pd.array(runs, dtype="string"),
-        "run_number": pd.array([int(r.split("_")[1]) for r in runs], dtype="int16"),
+        "run_number": pd.array([int(run.split("_")[1]) for run in runs], dtype="int16"),
     })
 
     return {"dim_subject": dim_subject, "dim_class": dim_class,
@@ -100,23 +103,23 @@ def build_dims(fact: pd.DataFrame):
 
 
 def build_tables(subject_ids=range(1, 10)):
-    fact = build_fact(subject_ids)
-    return {"fact_trial": fact, **build_dims(fact)}
+    fact_table = build_fact_table(subject_ids)
+    return {"fact_trial": fact_table, **build_dimension_tables(fact_table)}
 
 
-def write_tables(tables, out_dir: Path = OUT_DIR):
-    out_dir.mkdir(parents=True, exist_ok=True)
-    for name, df in tables.items():
-        df.to_parquet(out_dir / f"{name}.parquet", index=False)
+def write_tables(tables, output_dir: Path = OUTPUT_DIR):
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for name, table in tables.items():
+        table.to_parquet(output_dir / f"{name}.parquet", index=False)
     # CSV da fato para o benchmark.
-    tables["fact_trial"].to_csv(out_dir / "fact_trial.csv", index=False)
+    tables["fact_trial"].to_csv(output_dir / "fact_trial.csv", index=False)
 
 
 def main():
     tables = build_tables()
     write_tables(tables)
-    for name, df in tables.items():
-        print(f"{name}: {len(df)} linhas, {len(df.columns)} colunas "
+    for name, table in tables.items():
+        print(f"{name}: {len(table)} linhas, {len(table.columns)} colunas "
               f"-> data/processed/{name}.parquet")
 
 

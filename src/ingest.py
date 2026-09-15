@@ -1,6 +1,7 @@
 """Ingestão do BCI IV 2a em tabelas do esquema estrela (Parquet).
 
 Fato = um trial por linha; dimensões derivadas dos metadados do MOABB, sem sinal bruto.
+Pipeline: .mat -> MNE (MOABB) -> metadados de trial (braindecode) -> DataFrame (pandas) -> Parquet (pyarrow).
 Uso: `python -m src.ingest`.
 """
 from __future__ import annotations
@@ -20,8 +21,9 @@ OUTPUT_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
 
 
 def _load_windows(subject_ids):
-    # Janela de 4 s (offset 0); só para extrair metadados.
+    # MOABB lê os .mat -> objetos MNE (sinal contínuo + eventos/cues).
     dataset = MOABBDataset(dataset_name=DATASET_NAME, subject_ids=list(subject_ids))
+    # recorta 1 janela por trial pelos cues; preload=False = só metadados, sem carregar sinal.
     return create_windows_from_events(
         dataset, trial_start_offset_samples=0, trial_stop_offset_samples=0,
         preload=False, mapping=CLASS_MAP,
@@ -38,7 +40,7 @@ def build_fact_table(subject_ids=range(1, 10)) -> pd.DataFrame:
         subject = f"A{int(info['subject']):02d}"
         session = str(info["session"])
         run = f"run_{info['run']}"
-        for _, trial in recording.metadata.iterrows():
+        for _, trial in recording.metadata.iterrows():  # metadados do trial, não o sinal
             start = int(trial["i_start_in_trial"])
             stop = int(trial["i_stop_in_trial"])
             trial_in_run = int(trial["i_trial_in_dataset"])
@@ -49,11 +51,12 @@ def build_fact_table(subject_ids=range(1, 10)) -> pd.DataFrame:
                 "run_id": run,
                 "class_id": int(trial["target"]),
                 "trial_in_run": trial_in_run,
-                "onset_s": start / sampling_rate,
+                "onset_s": start / sampling_rate,  # tempo = índice de amostra / taxa
                 "duration_s": (stop - start) / sampling_rate,
                 "n_samples": stop - start,
             })
 
+    # tipos explícitos: identificadores como texto, numéricos definidos.
     return pd.DataFrame(trials).astype({
         "trial_id": "string", "subject_id": "string", "session_id": "string",
         "run_id": "string", "class_id": "int16", "trial_in_run": "int16",
@@ -110,8 +113,8 @@ def build_tables(subject_ids=range(1, 10)):
 def write_tables(tables, output_dir: Path = OUTPUT_DIR):
     output_dir.mkdir(parents=True, exist_ok=True)
     for name, table in tables.items():
-        table.to_parquet(output_dir / f"{name}.parquet", index=False)
-    # CSV da fato para o benchmark.
+        table.to_parquet(output_dir / f"{name}.parquet", index=False)  # pandas -> pyarrow -> .parquet
+    # CSV da fato só para o benchmark CSV vs Parquet.
     tables["fact_trial"].to_csv(output_dir / "fact_trial.csv", index=False)
 
 

@@ -239,15 +239,15 @@ erDiagram
 
 **Normalização/desnormalização:**
 
-- Estrela, não floco de neve: `body_part` e `paradigm` ficam em `dim_class` e `session_role` em
-  `dim_session`, sem subdimensões. São 4 e 2 linhas; a redundância é irrelevante e poupa joins.
-- Chaves naturais em texto (`A01`, `0train`, `run_0`) em vez de surrogate keys: a fonte é fechada
-  e as chaves são estáveis e legíveis.
-- `trial_in_run` e `has_artifact` ficam na fato (dimensões degeneradas): não têm atributos próprios.
-- `duration_s` e `n_samples` são constantes, mas ficam na fato: são medidas do grão e a taxa de
-  amostragem (250 Hz) sai delas, sem coluna própria.
-- `dim_session` e `dim_run` são papéis compartilhados pelos 9 sujeitos (2 e 6 linhas), não uma
-  linha por gravação. Atributos que variam por sujeito × sessão (como a data) não cabem nelas.
+- Esquema estrela: cada dimensão é uma única tabela ligada à fato. `body_part` e `paradigm` ficam
+  em `dim_class` e `session_role` em `dim_session` (desnormalizado). São 4 e 2 linhas, e cada
+  consulta faz um join por dimensão.
+- Chaves naturais em texto (`A01`, `0train`, `run_0`): a fonte é fechada e as chaves são estáveis
+  e legíveis.
+- `trial_in_run` e `has_artifact` ficam na fato: são atributos do próprio trial.
+- `duration_s` e `n_samples` ficam na fato como medidas do trial; a taxa de amostragem (250 Hz)
+  sai da razão entre elas.
+- `dim_session` e `dim_run` são compartilhadas pelos 9 sujeitos (2 e 6 linhas).
 
 **Fora do Parquet:** o **sinal EEG bruto** (22 canais × 1.000 amostras por trial), as gravações
 contínuas e os arquivos GDF. Só metadados de trial + rótulos entram. *Modalidade* é constante

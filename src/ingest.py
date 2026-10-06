@@ -1,7 +1,5 @@
 """Ingestão do BCI IV 2a em tabelas do esquema estrela (Parquet).
 
-Fato = um trial por linha; dimensões derivadas dos metadados do MOABB, sem sinal bruto.
-Pipeline: .mat -> MNE (MOABB) -> metadados de trial (braindecode) -> DataFrame (pandas) -> Parquet (pyarrow).
 Uso: `python -m src.ingest`.
 """
 from __future__ import annotations
@@ -9,10 +7,22 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from braindecode.datasets import MOABBDataset
 from braindecode.preprocessing import create_windows_from_events
+from moabb.datasets import BNCI2014_001
 
 DATASET_NAME = "BNCI2014_001"
+TRIALS_PER_SUBJECT = 576  # 2 sessões × 6 runs × 48 trials
+FACT_SCHEMA = pa.schema([
+    ("trial_id", pa.string()), ("subject_id", pa.string()),
+    ("session_id", pa.string()), ("run_id", pa.string()),
+    ("class_id", pa.int16()), ("trial_in_run", pa.int16()),
+    ("onset_s", pa.float64()), ("duration_s", pa.float64()),
+    ("n_samples", pa.int32()), ("has_artifact", pa.bool_()),
+])
+SEX = {1: "M", 2: "F"}  # códigos do MNE
 CLASS_MAP = {"left_hand": 0, "right_hand": 1, "feet": 2, "tongue": 3}
 BODY_PART = {"left_hand": "hand_left", "right_hand": "hand_right",
              "feet": "feet", "tongue": "tongue"}
@@ -21,26 +31,48 @@ OUTPUT_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
 
 
 def _load_windows(subject_ids):
-    # MOABB lê os .mat -> objetos MNE (sinal contínuo + eventos/cues).
     dataset = MOABBDataset(dataset_name=DATASET_NAME, subject_ids=list(subject_ids))
-    # recorta 1 janela por trial pelos cues; preload=False = só metadados, sem carregar sinal.
+    # preload=False: só metadados, sem carregar o sinal.
     return create_windows_from_events(
         dataset, trial_start_offset_samples=0, trial_stop_offset_samples=0,
         preload=False, mapping=CLASS_MAP,
     )
 
 
-def build_fact_table(subject_ids=range(1, 10)) -> pd.DataFrame:
+def _artifact_trials(subject_id):
+    """(sessão, run, amostra do cue) dos trials marcados como artefato na fonte."""
+    # o braindecode descarta essas marcações; vêm direto do MOABB.
+    sessions = BNCI2014_001(artifact_handling="annotate").get_data([subject_id])[subject_id]
+    return {
+        (session, run, round(annotation["onset"] * raw.info["sfreq"]))
+        for session, runs in sessions.items()
+        for run, raw in runs.items()
+        for annotation in raw.annotations
+        if annotation["description"] == "bnci_artifact"
+    }
+
+
+def _subject_row(recording):
+    """Demografia do sujeito, lida do .mat pelo MOABB."""
+    subject_info = recording.raw.info["subject_info"]
+    return {
+        "subject_id": f"A{int(recording.description['subject']):02d}",
+        # idade = ano da gravação - ano de nascimento.
+        "age": recording.raw.info["meas_date"].year - subject_info["birthday"].year,
+        "sex": SEX[subject_info["sex"]],
+    }
+
+
+def build_fact_table(windows, artifact_trials) -> pd.DataFrame:
     """Fato: uma linha por trial."""
-    windows = _load_windows(subject_ids)
     trials = []
-    for recording in windows.datasets:  # cada recording = sujeito × sessão × run
+    for recording in windows.datasets:
         info = recording.description
         sampling_rate = recording.raw.info["sfreq"]
         subject = f"A{int(info['subject']):02d}"
         session = str(info["session"])
         run = f"run_{info['run']}"
-        for _, trial in recording.metadata.iterrows():  # metadados do trial, não o sinal
+        for _, trial in recording.metadata.iterrows():
             start = int(trial["i_start_in_trial"])
             stop = int(trial["i_stop_in_trial"])
             trial_in_run = int(trial["i_trial_in_dataset"])
@@ -51,30 +83,21 @@ def build_fact_table(subject_ids=range(1, 10)) -> pd.DataFrame:
                 "run_id": run,
                 "class_id": int(trial["target"]),
                 "trial_in_run": trial_in_run,
-                "onset_s": start / sampling_rate,  # tempo = índice de amostra / taxa
+                "onset_s": start / sampling_rate,
                 "duration_s": (stop - start) / sampling_rate,
                 "n_samples": stop - start,
+                "has_artifact": (session, str(info["run"]), start) in artifact_trials,
             })
 
-    # tipos explícitos: identificadores como texto, numéricos definidos.
-    return pd.DataFrame(trials).astype({
-        "trial_id": "string", "subject_id": "string", "session_id": "string",
-        "run_id": "string", "class_id": "int16", "trial_in_run": "int16",
-        "onset_s": "float64", "duration_s": "float64", "n_samples": "int32",
-    })
+    return pd.DataFrame(trials)
 
 
-def build_dimension_tables(fact_table: pd.DataFrame):
+def build_dimension_tables(fact_table: pd.DataFrame, subjects):
     """Dimensões do esquema estrela."""
-    subjects = sorted(fact_table["subject_id"].unique())
-    n_subjects = len(subjects)
-    # 2a não publica demografia -> NULL.
-    dim_subject = pd.DataFrame({
-        "subject_id": pd.array(subjects, dtype="string"),
-        "age": pd.array([pd.NA] * n_subjects, dtype="Int16"),
-        "sex": pd.array([pd.NA] * n_subjects, dtype="string"),
-        "handedness": pd.array([pd.NA] * n_subjects, dtype="string"),
-    })
+    dim_subject = pd.DataFrame(subjects).astype(
+        {"subject_id": "string", "age": "Int16", "sex": "string"})
+    # lateralidade não está no .mat -> NULL.
+    dim_subject["handedness"] = pd.array([pd.NA] * len(dim_subject), dtype="string")
 
     dim_class = pd.DataFrame(
         [{"class_id": class_id, "class_name": class_name,
@@ -91,8 +114,6 @@ def build_dimension_tables(fact_table: pd.DataFrame):
         "session_role": pd.array(
             ["train" if "train" in session else "test" for session in sessions],
             dtype="string"),
-        # data de gravação não divulgada -> NULL.
-        "recording_day": pd.array([pd.NaT] * len(sessions), dtype="datetime64[ns]"),
     })
 
     runs = sorted(fact_table["run_id"].unique())
@@ -105,22 +126,34 @@ def build_dimension_tables(fact_table: pd.DataFrame):
             "dim_session": dim_session, "dim_run": dim_run}
 
 
-def build_tables(subject_ids=range(1, 10)):
-    fact_table = build_fact_table(subject_ids)
-    return {"fact_trial": fact_table, **build_dimension_tables(fact_table)}
-
-
-def write_tables(tables, output_dir: Path = OUTPUT_DIR):
+def ingest(subject_ids=range(1, 10), output_dir: Path = OUTPUT_DIR):
+    """Ingestão em lotes: um sujeito por vez, um row group por sujeito."""
+    subject_ids = list(subject_ids)
     output_dir.mkdir(parents=True, exist_ok=True)
-    for name, table in tables.items():
-        table.to_parquet(output_dir / f"{name}.parquet", index=False)  # pandas -> pyarrow -> .parquet
+    fact_path = output_dir / "fact_trial.parquet"
+    subjects = []
+    with pq.ParquetWriter(fact_path, FACT_SCHEMA) as writer:
+        for subject_id in subject_ids:
+            windows = _load_windows([subject_id])
+            batch = build_fact_table(windows, _artifact_trials(subject_id))
+            subjects.append(_subject_row(windows.datasets[0]))
+            writer.write_table(
+                pa.Table.from_pandas(batch, schema=FACT_SCHEMA, preserve_index=False))
+
+    fact_table = pd.read_parquet(fact_path)
+    assert len(fact_table) == len(subject_ids) * TRIALS_PER_SUBJECT
+    assert fact_table["trial_id"].is_unique
+
+    dimensions = build_dimension_tables(fact_table, subjects)
+    for name, table in dimensions.items():
+        table.to_parquet(output_dir / f"{name}.parquet", index=False)
     # CSV da fato só para o benchmark CSV vs Parquet.
-    tables["fact_trial"].to_csv(output_dir / "fact_trial.csv", index=False)
+    fact_table.to_csv(output_dir / "fact_trial.csv", index=False)
+    return {"fact_trial": fact_table, **dimensions}
 
 
 def main():
-    tables = build_tables()
-    write_tables(tables)
+    tables = ingest()
     for name, table in tables.items():
         print(f"{name}: {len(table)} linhas, {len(table.columns)} colunas "
               f"-> data/processed/{name}.parquet")

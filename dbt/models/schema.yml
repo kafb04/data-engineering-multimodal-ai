@@ -1,0 +1,75 @@
+version: 2
+
+# Prata
+sources:
+  - name: silver
+    meta:
+      external_location: "data/processed/{name}.parquet"
+    tables:
+      - name: fact_trial
+        columns:
+          - name: trial_id
+            data_tests: [unique, not_null]
+          - name: subject_id
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('silver', 'dim_subject')
+                    field: subject_id
+          - name: session_id
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('silver', 'dim_session')
+                    field: session_id
+          - name: run_id
+            data_tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('silver', 'dim_run')
+                    field: run_id
+          - name: class_id
+            data_tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: [0, 1, 2, 3]
+              - relationships:
+                  arguments:
+                    to: source('silver', 'dim_class')
+                    field: class_id
+          - name: has_artifact
+            data_tests: [not_null]
+      - name: dim_subject
+        columns:
+          - name: subject_id
+            data_tests: [unique, not_null]
+          - name: sex
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: ["M", "F"]
+      - name: dim_class
+        columns:
+          - name: class_id
+            data_tests: [unique, not_null]
+      - name: dim_session
+        columns:
+          - name: session_id
+            data_tests: [unique, not_null]
+      - name: dim_run
+        columns:
+          - name: run_id
+            data_tests: [unique, not_null]
+
+# Ouro
+models:
+  - name: gold_valid_trials
+    columns:
+      - name: n_trials
+        data_tests: [not_null]
+      - name: n_valid
+        data_tests: [not_null]

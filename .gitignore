@@ -1,12 +1,17 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# Download incompleto do navegador, nao faz parte da entrega
 *.crdownload
 
-# Cache do MOABB/MNE (dados do BCI IV 2a baixados sob demanda; nao versionar)
+# cache do MOABB/MNE
 mne_data/
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/.user.yml
 
 .DS_Store

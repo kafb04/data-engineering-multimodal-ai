@@ -1,0 +1,18 @@
+[project]
+name = "data-engineering-multimodal-ai"
+version = "0.1.0"
+description = "BCI Competition IV 2a: ficha técnica, EDA e camada analítica (Parquet + DuckDB)"
+requires-python = "==3.12.*"
+dependencies = [
+    "mne==1.12.1",
+    "numpy==2.5.2",
+    "pandas==3.0.5",
+    "matplotlib==3.11.1",
+    "notebook==7.6.2",
+    "moabb==1.7.2",
+    "braindecode==1.8.1",
+    "torch==2.14.0",
+    "duckdb==1.5.5",
+    "pyarrow==25.0.1",
+    "dbt-duckdb==1.11.0",
+]

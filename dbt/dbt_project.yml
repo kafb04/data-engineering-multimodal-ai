@@ -1,0 +1,4 @@
+name: bci_iv_2a
+version: "1.0.0"
+profile: bci_iv_2a
+model-paths: ["models"]

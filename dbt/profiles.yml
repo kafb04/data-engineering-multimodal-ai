@@ -1,0 +1,6 @@
+bci_iv_2a:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: dbt/target/bci_iv_2a.duckdb

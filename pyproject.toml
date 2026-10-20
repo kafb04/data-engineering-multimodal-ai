@@ -15,4 +15,5 @@ dependencies = [
     "duckdb==1.5.5",
     "pyarrow==25.0.1",
     "dbt-duckdb==1.11.0",
+    "scikit-learn==1.9.1",
 ]

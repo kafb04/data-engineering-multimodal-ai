@@ -1,4 +1,4 @@
-"""Treino do EEGNet no BCI IV 2a com divisão por sujeito (GroupKFold) e predições.
+"""Treino do EEGNet no BCI IV 2a com divisão por sujeito (GroupKFold, 9 folds) e predições.
 
 Uso: `python -m src.train`.
 """
@@ -12,9 +12,7 @@ import pandas as pd
 import torch
 from braindecode.datasets import MOABBDataset
 from braindecode.models import EEGNet
-from braindecode.preprocessing import (
-    Preprocessor, create_windows_from_events, exponential_moving_standardize, preprocess,
-)
+from braindecode.preprocessing import Preprocessor, create_windows_from_events, preprocess
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.model_selection import GroupKFold
 
@@ -23,9 +21,9 @@ from src.ingest import CLASS_MAP, DATASET_NAME, build_fact_table
 ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = ROOT / "models"
 PREDICTIONS_PATH = ROOT / "data" / "predictions" / "predictions_eegnet.parquet"
-MODEL_VERSION = "eegnet_braindecode-1.8.1_groupkfold3_seed42_v1"
-SEED, N_FOLDS, N_EPOCHS, BATCH_SIZE, LR = 42, 3, 80, 64, 1e-3
-SFREQ = 128  # taxa do artigo do EEGNet
+MODEL_VERSION = "eegnet_braindecode-1.8.1_groupkfold9_seed42_v2"
+SEED, N_FOLDS, N_EPOCHS, BATCH_SIZE, LR = 42, 9, 80, 64, 1e-3
+SFREQ = 128  # Hz, como no artigo do EEGNet
 CLASS_NAMES = sorted(CLASS_MAP, key=CLASS_MAP.get)
 
 
@@ -37,14 +35,12 @@ def load_windows():
         Preprocessor(lambda data: data * 1e6),  # V -> µV
         Preprocessor("filter", l_freq=4.0, h_freq=38.0),
         Preprocessor("resample", sfreq=SFREQ),
-        # causal e por gravação: nenhuma estatística atravessa sujeitos.
-        Preprocessor(exponential_moving_standardize, factor_new=1e-3, init_block_size=1000),
     ])
     windows = create_windows_from_events(
         dataset, trial_start_offset_samples=0, trial_stop_offset_samples=0,
         preload=True, mapping=CLASS_MAP,
     )
-    # mesma ordem de windows[i]; reaproveita o trial_id da camada analítica.
+    # trial_id na mesma ordem de windows[i]
     meta = build_fact_table(windows, set())[["trial_id", "subject_id", "session_id", "class_id"]]
     fact = pd.read_parquet(ROOT / "data" / "processed" / "fact_trial.parquet",
                            columns=["trial_id", "has_artifact"])
@@ -65,7 +61,7 @@ def predict(model, X):
 
 
 def train_fold(X, y, train_idx, val_idx):
-    torch.manual_seed(SEED)  # reinicia o modelo a cada fold
+    torch.manual_seed(SEED)  # mesma inicialização em todos os folds
     model = EEGNet(n_chans=X.shape[1], n_outputs=len(CLASS_NAMES), n_times=X.shape[2])
     optimizer = torch.optim.Adam(model.parameters(), lr=LR)
     loss_fn = torch.nn.CrossEntropyLoss()
@@ -78,7 +74,7 @@ def train_fold(X, y, train_idx, val_idx):
             optimizer.zero_grad()
             loss_fn(model(X_train[batch]), y_train[batch]).backward()
             optimizer.step()
-        # época escolhida na validação (sujeito fora do treino), nunca no teste.
+        # guarda a melhor época na validação
         score = balanced_accuracy_score(y[val_idx], predict(model, X[val_idx]).argmax(1))
         if score > best_score:
             best_score, best_state = score, copy.deepcopy(model.state_dict())
@@ -104,9 +100,14 @@ def main():
         assert not (train_s & val_s) and not (train_s & test_s) and not (val_s & test_s)
         print(f"fold {fold}: treino {sorted(train_s)} | val {val_subject} | teste {sorted(test_s)}")
 
-        model, val_score = train_fold(X, y, train_idx, val_idx)
+        # z-score por canal ajustado no treino
+        mean = X[train_idx].mean(axis=(0, 2), keepdims=True)
+        std = X[train_idx].std(axis=(0, 2), keepdims=True)
+        X_fold = (X - mean) / std
+
+        model, val_score = train_fold(X_fold, y, train_idx, val_idx)
         torch.save(model.state_dict(), MODELS_DIR / f"eegnet_fold{fold}.pt")
-        proba = predict(model, X[test_idx])
+        proba = predict(model, X_fold[test_idx])
         fold_pred = meta.iloc[test_idx].reset_index(drop=True)
         fold_pred = fold_pred.rename(columns={"class_id": "y_true"})
         fold_pred.insert(3, "fold", fold)

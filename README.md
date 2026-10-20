@@ -308,79 +308,55 @@ gera o Ouro. `dbt build` roda 23 testes e 1 modelo, todos com sucesso.
 
 ## 13. Modelo e avaliação
 
-O **EEGNet**, treinado do zero com divisão **por sujeito**, acerta **51,6%** dos trials de
-sujeitos nunca vistos (IC 95% 43,6–60,4%; acaso = 25%), com kappa de **0,35**. Código em
-[`src/train.py`](src/train.py); análise em [`notebooks/04_modelo_2a.ipynb`](notebooks/04_modelo_2a.ipynb).
+Classificação da imagética motora em 4 classes com o **EEGNet**, treinado do zero com divisão
+**por paciente**. Código em [`src/train.py`](src/train.py); avaliação em
+[`notebooks/04_modelo_2a.ipynb`](notebooks/04_modelo_2a.ipynb).
 
 **Modelo.** EEGNet: Lawhern et al., *EEGNet: a compact convolutional neural network for
 EEG-based brain–computer interfaces*, J. Neural Eng. 15:056013, 2018 — DOI
-[10.1088/1741-2552/aace8c](https://doi.org/10.1088/1741-2552/aace8c). Implementação
+[10.1088/1741-2552/aace8c](https://doi.org/10.1088/1741-2552/aace8c). É uma CNN com convoluções
+no tempo e entre canais. Implementação
 [`braindecode.models.EEGNet`](https://braindecode.org/stable/generated/braindecode.models.EEGNet.html)
-(braindecode 1.8.1), com os hiperparâmetros padrão (F1 = 8, D = 2, dropout de 0,25). Não há peso
-pré-treinado para o 2a, então o modelo foi treinado do zero.
+(braindecode 1.8.1), com os hiperparâmetros do artigo (F1 = 8, D = 2, dropout de 0,25).
 
-**Protocolo (divisão por paciente).** `GroupKFold` com 3 folds e `groups = subject_id`. Cada
-fold testa em 3 sujeitos e treina nos outros 6: 5 de treino e 1 de **validação**, usado só para
-escolher a melhor época. Nenhum sujeito aparece em dois papéis no mesmo fold (há um assert para
-isso), e o modelo é reiniciado em cada fold. Todo trial é predito pelo modelo que nunca viu o seu
-sujeito.
+**Aplicação.** Predições em
+[`data/predictions/predictions_eegnet.parquet`](data/predictions/predictions_eegnet.parquet), uma
+linha por trial: `trial_id` (ID da amostra, o mesmo da `fact_trial`), `subject_id` (ID do
+paciente), `session_id`, `fold`, `model_version` (`eegnet_braindecode-1.8.1_groupkfold9_seed42_v2`),
+`y_true`, `has_artifact`, `y_pred` e as saídas `p_left_hand`, `p_right_hand`, `p_feet` e `p_tongue`.
+Cada trial é predito pelo modelo do fold em que o seu paciente ficou no teste.
 
-| fold | treino | validação | teste |
-|---|---|---|---|
-| 0 | A01, A02, A04, A05, A07 | A08 | A03, A06, A09 |
-| 1 | A01, A03, A04, A06, A07 | A09 | A02, A05, A08 |
-| 2 | A02, A03, A05, A06, A08 | A09 | A01, A04, A07 |
+**Investigação** (notebook 04, trials sem artefato; classes balanceadas, 25% cada):
 
-**Pré-processamento.** 22 canais EEG em µV, passa-banda de 4–38 Hz, reamostragem para 128 Hz e
-padronização exponencial móvel. A padronização é causal e feita por gravação, então nenhuma
-estatística cruza sujeitos. Janelas de 4 s a partir do cue (22 × 512). O treino e a validação usam
-só trials sem artefato (quarentena da seção 12); a predição cobre todos os 5.184.
-
-Treino: Adam (lr 1e-3), batch 64, 80 épocas, seed 42, em CPU (~10 min por fold).
-
-**Predições:** [`data/predictions/predictions_eegnet.parquet`](data/predictions/predictions_eegnet.parquet),
-com uma linha por trial: `trial_id` (amostra, igual ao da `fact_trial`), `subject_id` (paciente),
-`session_id`, `fold`, `model_version` (`eegnet_braindecode-1.8.1_groupkfold3_seed42_v1`), `y_true`,
-`has_artifact`, `y_pred` e as probabilidades `p_left_hand`, `p_right_hand`, `p_feet` e `p_tongue`.
-
-**Pesos:** `models/eegnet_fold{0,1,2}.pt` (`state_dict`, 18 KB cada). Para reproduzir, rode
-`uv run python -m src.train`. Em CPU, threads diferentes podem mudar ligeiramente os números.
-
-**Métricas** (trials sem artefato, n = 4.696; classes balanceadas, 25% cada). IC 95% por bootstrap
-reamostrando **sujeitos** (2.000 réplicas):
-
-| métrica | valor | IC 95% |
-|---|---|---|
-| acurácia | 0,516 | 0,436–0,604 |
-| acurácia balanceada | 0,515 | 0,435–0,604 |
-| F1 macro | 0,514 | 0,428–0,602 |
-| kappa de Cohen | 0,354 | 0,248–0,473 |
-| MCC | 0,355 | 0,252–0,474 |
-
-Por classe (uma contra as demais, IC de Wilson), a sensibilidade vai de 0,46 (mão esquerda) a
-0,65 (mão direita); a especificidade, de 0,81 (pés) a 0,87 (língua).
-
-**Erros.**
-
-- **Entre sujeitos** está a maior variação: de 36% (A05) a 72% (A08). A01, A03 e A08 ficam
-  acima de 60%; A02, A05 e A06, abaixo de 41%.
-- **"Pés" funciona como classe-ralo.** Os erros mais comuns são mão esquerda → pés (266) e
-  língua → pés (235). Pés e língua não têm a lateralização mu/beta que separa as duas mãos.
-- **Trials com artefato** erram mais: 44,9% contra 51,6% nos limpos (qui-quadrado, p = 0,006).
-- **Sessão** não muda o resultado (`0train` 51,8% × `1test` 51,4%, p = 0,78), o esperado para
-  um modelo que não viu nenhuma sessão do sujeito.
-- **Confiança:** os acertos têm probabilidade máxima maior (mediana 0,67 contra 0,55 nos
-  erros). Acima de 0,8, o modelo acerta 71%. As probabilidades não são calibradas.
+- acurácia, acurácia balanceada, F1 macro e MCC, com IC 95% por bootstrap **reamostrando
+  pacientes** (2.000 réplicas);
+- sensibilidade e especificidade por classe (uma contra as demais), com IC 95% de Wilson;
+- matriz de confusão e os pares de classes mais confundidos;
+- acurácia por paciente, com IC de Wilson;
+- sessão (`0train` × `1test`) e trials com × sem artefato, comparados por qui-quadrado (Fisher se
+  houver poucos casos), com correção de Holm.
 
 **Limitações.**
 
-- 9 sujeitos: o IC é largo, e o bootstrap com 9 grupos é aproximado.
-- A época é escolhida por um único sujeito de validação; não houve busca de hiperparâmetros.
-- O protocolo é cross-subject. O padrão da competição é within-subject (`T` → `E` do mesmo
-  sujeito), que costuma dar acurácia maior, então os números não se comparam diretamente.
-- No uso real não existe marcação de artefato. A métrica com todos os trials (0,509) é a mais
-  próxima do uso.
-- São voluntários saudáveis em laboratório; nada aqui demonstra desempenho em pacientes.
+- 9 pacientes: o IC é largo, e o bootstrap com 9 grupos é aproximado.
+- Domain shift entre pessoas: o teste é sempre um paciente que o modelo nunca viu.
+- A época é escolhida por um único paciente de validação, sem busca de hiperparâmetros.
+- A saída do modelo não é probabilidade de acerto: 0,8 não significa 80% de chance.
+- No uso real não existe marcação de artefato.
+- São voluntários saudáveis em laboratório; nada aqui demonstra desempenho em pacientes com
+  AVC ou ELA.
+
+**Treino (em andamento).** Os dados são separados por paciente antes de qualquer ajuste:
+`GroupKFold` com 9 folds e `groups = subject_id`. Em cada fold, 1 paciente fica no teste,
+1 na validação (só para escolher a melhor época) e 7 no treino; um assert garante que nenhum
+paciente aparece em dois papéis. Pré-processamento: 22 canais EEG em µV, passa-banda de 4–38 Hz,
+reamostragem para 128 Hz e janelas de 4 s a partir do cue (22 × 512). O z-score por canal é
+ajustado **só no treino** e aplicado igual na validação e no teste. Só trials sem artefato entram
+no treino e na validação (quarentena da seção 12). Adam (lr 1e-3), batch 64, 80 épocas, seed 42,
+em CPU (~13 min por fold).
+Pesos em `models/eegnet_fold{0..8}.pt` (`state_dict`); para reproduzir, rode
+`uv run python -m src.train`. O treino ainda está rodando, e os resultados do notebook 04 serão
+atualizados quando ele terminar.
 
 ## 14. Estrutura
 
@@ -395,7 +371,7 @@ Por classe (uma contra as demais, IC de Wilson), a sensibilidade vai de 0,46 (m�
 ├── data/processed/                       # Prata: Parquet + CSV da camada analítica (versionados)
 ├── data/gold/                            # Ouro: agregado gerado pelo dbt (versionado)
 ├── data/predictions/                     # predições do EEGNet (1 linha por trial, versionado)
-├── models/                               # pesos do EEGNet, um por fold (versionados)
+├── models/                               # pesos do EEGNet, um por fold (9, versionados)
 ├── dbt/                                  # projeto dbt: testes declarativos + modelo Ouro
 ├── notebooks/
 │   ├── 01_eda_bci_iv_2a.ipynb           # EDA do 2a

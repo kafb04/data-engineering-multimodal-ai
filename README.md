@@ -19,7 +19,7 @@ uv run jupyter notebook notebooks\02_camada_analitica_2a.ipynb  # Parquet + Duck
 uv run jupyter notebook notebooks\03_qualidade_2a.ipynb         # métricas de qualidade
 uv run dbt build --project-dir dbt --profiles-dir dbt            # testes declarativos + camada Ouro
 uv run python -m src.train                                      # treina o EEGNet e (re)gera as predições
-uv run jupyter notebook notebooks_modelo_2a.ipynb            # métricas e análise de erros
+uv run jupyter notebook notebooks\04_modelo_2a.ipynb            # métricas e análise de erros
 ```
 
 O Parquet já vem versionado em `data/processed/` e `data/predictions/`, então os **notebooks 02, 03 e 04
@@ -336,6 +336,29 @@ Cada trial é predito pelo modelo do fold em que o seu paciente ficou no teste.
 - sessão (`0train` × `1test`) e trials com × sem artefato, comparados por qui-quadrado (Fisher se
   houver poucos casos), com correção de Holm.
 
+**Resultados** (trials sem artefato, n = 4.696). O modelo acerta **49,4%** dos trials de pacientes
+que nunca viu; o acaso é 25%.
+
+| métrica | valor | IC 95% |
+|---|---|---|
+| acurácia | 0,494 | 0,417–0,573 |
+| acurácia balanceada | 0,494 | 0,417–0,573 |
+| F1 macro | 0,496 | 0,408–0,572 |
+| MCC | 0,327 | 0,231–0,435 |
+
+Por classe, a sensibilidade vai de 0,45 (língua) a 0,56 (mão direita) e a especificidade, de
+0,77 (pés) a 0,91 (língua).
+
+**Erros.**
+
+- **Por paciente:** de 33% (A05) a 67% (A01). A01, A03 e A09 ficam perto de 60% ou acima; A04,
+  A05 e A06, abaixo de 39%.
+- **Pés × mão esquerda** é a confusão mais comum (327 pés → mão esquerda e 307 mão esquerda → pés).
+  Pés também recebe muitos erros de mão direita (263) e de língua (258).
+- **Sessão:** não muda o resultado (`0train` 49,5% × `1test` 49,2%; p de Holm = 0,84).
+- **Artefato:** 45,3% de acerto nos trials marcados contra 49,4% nos limpos, diferença não
+  significativa após Holm (p = 0,19).
+
 **Limitações.**
 
 - 9 pacientes: o IC é largo, e o bootstrap com 9 grupos é aproximado.
@@ -346,17 +369,16 @@ Cada trial é predito pelo modelo do fold em que o seu paciente ficou no teste.
 - São voluntários saudáveis em laboratório; nada aqui demonstra desempenho em pacientes com
   AVC ou ELA.
 
-**Treino (em andamento).** Os dados são separados por paciente antes de qualquer ajuste:
+**Treino.** Os dados são separados por paciente antes de qualquer ajuste:
 `GroupKFold` com 9 folds e `groups = subject_id`. Em cada fold, 1 paciente fica no teste,
 1 na validação (só para escolher a melhor época) e 7 no treino; um assert garante que nenhum
 paciente aparece em dois papéis. Pré-processamento: 22 canais EEG em µV, passa-banda de 4–38 Hz,
 reamostragem para 128 Hz e janelas de 4 s a partir do cue (22 × 512). O z-score por canal é
 ajustado **só no treino** e aplicado igual na validação e no teste. Só trials sem artefato entram
 no treino e na validação (quarentena da seção 12). Adam (lr 1e-3), batch 64, 80 épocas, seed 42,
-em CPU (~13 min por fold).
+em CPU (~8 min por fold).
 Pesos em `models/eegnet_fold{0..8}.pt` (`state_dict`); para reproduzir, rode
-`uv run python -m src.train`. O treino ainda está rodando, e os resultados do notebook 04 serão
-atualizados quando ele terminar.
+`uv run python -m src.train`.
 
 ## 14. Estrutura
 

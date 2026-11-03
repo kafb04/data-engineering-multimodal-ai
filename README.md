@@ -141,26 +141,6 @@ acima da linha tracejada (acaso), melhor. O ponto marca o limiar escolhido na va
 
 <img src="figuras/curva_roc.png" width="400" alt="Curva ROC do EEGConformer e do perceptron multicamadas no teste">
 
-**Área sob a curva ROC:** 0,5 = chute, 1 = acerta sempre.
-
-```mermaid
----
-config:
-  xyChart:
-    width: 720
-    height: 260
-  themeVariables:
-    xyChart:
-      plotColorPalette: "#4C78A8, #E45756"
----
-xychart-beta
-    title "Área sob a curva ROC (linha vermelha = chute)"
-    x-axis ["EEGConformer validação", "EEGConformer teste", "Perceptron validação", "Perceptron teste"]
-    y-axis 0.4 --> 0.8
-    bar [0.761, 0.600, 0.599, 0.561]
-    line [0.5, 0.5, 0.5, 0.5]
-```
-
 | no teste | sensibilidade | especificidade | acurácia |
 |---|---|---|---|
 | **EEGConformer** | 78,0% | 37,2% | **57,6%** |
@@ -214,27 +194,8 @@ Semelhança de cada trecho de teste com o vizinho mais parecido: nenhum chega pe
 
 <img src="figuras/semelhanca_vizinhos.png" width="520" alt="Histograma da semelhança com o vizinho mais parecido">
 
-O modelo **agrupa por pessoa**, não por intenção:
-
-```mermaid
----
-config:
-  xyChart:
-    width: 560
-    height: 260
-  themeVariables:
-    xyChart:
-      plotColorPalette: "#4C78A8, #E45756"
----
-xychart-beta
-    title "Vizinhos da mesma pessoa, em % (linha vermelha = acaso)"
-    x-axis [A01, A02, A03, A04, A05, A06, A07, A08, A09]
-    y-axis "%" 0 --> 50
-    bar [14.5, 27.4, 34.8, 13.5, 26.0, 19.2, 12.7, 32.1, 48.1]
-    line [11.1, 11.1, 11.1, 11.1, 11.1, 11.1, 11.1, 11.1, 11.1]
-```
-
-O mapa t-SNE (embeddings projetados em 2 dimensões) mostra o mesmo: colorindo por pessoa, A09
+O modelo **agrupa por pessoa**, não por intenção. O mapa t-SNE (embeddings projetados em 2
+dimensões) mostra isso: colorindo por pessoa, A09
 (amarelo) forma um grupo próprio; colorindo por tipo de trecho, repouso e intenção se misturam.
 
 <img src="figuras/tsne.png" width="720" alt="Mapa t-SNE colorido por pessoa e por tipo de trecho">

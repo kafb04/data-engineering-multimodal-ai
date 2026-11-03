@@ -37,6 +37,12 @@ uv run jupyter notebook notebooks/                        # gráficos e análise
 **Dados abertos (nota de 1 a 5):** fácil de encontrar 5 · fácil de acessar 5 · fácil de combinar 4 ·
 fácil de reutilizar 3 → **média 4,25**.
 
+Sinal dos eletrodos C3, Cz e C4 (lado esquerdo, centro e lado direito da cabeça) em duas tentativas,
+e as 4 classes, equilibradas:
+
+<img src="figuras/sinal_c3_cz_c4.png" width="420" alt="Sinal dos eletrodos C3, Cz e C4 em duas tentativas">
+<img src="figuras/distribuicao_classes.png" width="400" alt="Quantidade de tentativas por classe">
+
 **Limitações:** só 9 pessoas saudáveis, 2 dias de gravação, piscadas atrapalham o sinal.
 
 ---
@@ -126,7 +132,17 @@ flowchart LR
 
 ### Resultados
 
-**Área sob a curva:** 0,5 = chute, 1 = acerta sempre.
+**Overfitting:** a perda no treino cai sem parar, mas a da validação não acompanha. O modelo
+guardado é o da época com maior área sob a curva ROC na validação (linha tracejada).
+
+<img src="figuras/curvas_treino.png" width="720" alt="Perda e área sob a curva ROC por época">
+
+**Curva ROC no teste:** mostra sensibilidade × erros no repouso em todos os limiares. Quanto mais
+acima da linha tracejada (acaso), melhor. O ponto marca o limiar escolhido na validação; "mlp" é o perceptron multicamadas.
+
+<img src="figuras/curva_roc.png" width="400" alt="Curva ROC do EEGConformer e do perceptron multicamadas no teste">
+
+**Área sob a curva ROC:** 0,5 = chute, 1 = acerta sempre.
 
 ```mermaid
 ---
@@ -139,9 +155,9 @@ config:
       plotColorPalette: "#4C78A8, #E45756"
 ---
 xychart-beta
-    title "Área sob a curva (linha vermelha = chute)"
+    title "Área sob a curva ROC (linha vermelha = chute)"
     x-axis ["EEGConformer validação", "EEGConformer teste", "Perceptron validação", "Perceptron teste"]
-    y-axis "área sob a curva" 0.4 --> 0.8
+    y-axis 0.4 --> 0.8
     bar [0.761, 0.600, 0.599, 0.561]
     line [0.5, 0.5, 0.5, 0.5]
 ```
@@ -150,6 +166,11 @@ xychart-beta
 |---|---|---|---|
 | **EEGConformer** | 78,0% | 37,2% | **57,6%** |
 | Perceptron multicamadas | 74,3% | 35,8% | 55,0% |
+
+**Matriz de confusão no teste** (linha = verdade, coluna = resposta do modelo). Com o limiar da
+validação, os dois modelos respondem "intenção" na maioria dos repousos:
+
+<img src="figuras/matriz_confusao.png" width="520" alt="Matriz de confusão dos dois modelos no teste">
 
 - O EEGConformer separa melhor as classes (DeLong, p = 0,018), mas os dois ficam pouco acima do chute.
 - A nota cai de 0,76 na validação para 0,60 no teste: **cada cérebro é diferente** (domain shift).
@@ -189,6 +210,11 @@ flowchart LR
 | Vizinhos da mesma pessoa (acaso: 11%) | **25,4%** |
 | Vizinhos do mesmo tipo de janela (acaso: 50%) | 52,3% |
 
+Semelhança de cada janela de teste com a vizinha mais parecida: nenhuma chega perto de 0,99
+(linha tracejada), o limite para ser considerada cópia.
+
+<img src="figuras/semelhanca_vizinhos.png" width="520" alt="Histograma da semelhança com o vizinho mais parecido">
+
 O modelo **agrupa por pessoa**, não por intenção:
 
 ```mermaid
@@ -209,6 +235,11 @@ xychart-beta
     line [11.1, 11.1, 11.1, 11.1, 11.1, 11.1, 11.1, 11.1, 11.1]
 ```
 
+O mapa t-SNE (embeddings projetados em 2 dimensões) mostra o mesmo: colorindo por pessoa, A09
+(amarelo) forma um grupo próprio; colorindo por janela, repouso e intenção se misturam.
+
+<img src="figuras/tsne.png" width="720" alt="Mapa t-SNE colorido por pessoa e por janela">
+
 ```mermaid
 ---
 config:
@@ -220,9 +251,9 @@ config:
       plotColorPalette: "#4C78A8, #E45756"
 ---
 xychart-beta
-    title "Área sob a curva no teste (linha vermelha = chute)"
+    title "Área sob a curva ROC no teste (linha vermelha = chute)"
     x-axis ["EEGConformer", "Perceptron", "Vizinhos"]
-    y-axis "área sob a curva" 0.4 --> 0.8
+    y-axis 0.4 --> 0.8
     bar [0.600, 0.561, 0.535]
     line [0.5, 0.5, 0.5]
 ```

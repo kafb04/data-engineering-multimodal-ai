@@ -13,13 +13,15 @@ uv run python -m src.ingest                                     # (re)gera data/
 uv run jupyter notebook notebooks/01_dados_2a.ipynb             # exploração, camada analítica e qualidade
 uv run dbt build --project-dir dbt --profiles-dir dbt           # testes declarativos + camada Ouro
 uv run python -m src.train                                      # treina EEGConformer e MLP e gera as predições
-uv run jupyter notebook notebooks/02_modelo_2a.ipynb            # matriz de confusão, métricas e erros
+uv run python -m src.embed                                      # embeddings do CBraMod e vizinhos
+uv run jupyter notebook notebooks/02_modelo_2a.ipynb            # matriz de confusão, métricas, erros e embeddings
 ```
 
-O Parquet já vem versionado em `data/processed/` e `data/predictions/`, então o **notebook 02 roda
-offline**. `src.ingest`, `src.train` e o **notebook 01** baixam o 2a via MOABB na 1ª vez (requer
-internet). Detalhes: ambiente (seção 9), dados (seção 10), esquema estrela (seção 11), qualidade
-(seção 12), modelo (seção 13).
+O Parquet já vem versionado em `data/processed/`, `data/predictions/` e `data/embeddings/`, então o
+**notebook 02 roda offline**. `src.ingest`, `src.train`, `src.embed` e o **notebook 01** baixam o 2a via
+MOABB na 1ª vez (requer internet); `src.embed` também baixa os pesos do CBraMod do Hugging Face.
+Detalhes: ambiente (seção 9), dados (seção 10), esquema estrela (seção 11), qualidade (seção 12),
+modelo (seção 13), embeddings (seção 14).
 
 ## 1. Nome e fonte
 
@@ -138,8 +140,8 @@ disponíveis no [braindecode](https://braindecode.org/). Protocolo padrão: **wi
 
 Python 3.12, com as dependências diretas **fixadas** em [`pyproject.toml`](pyproject.toml) e as
 transitivas em [`uv.lock`](uv.lock): `mne`, `numpy`, `pandas`, `matplotlib`, `notebook`; para o
-2a, `moabb`, `braindecode` e `torch`; para o modelo e as métricas, `scikit-learn`; para a camada analítica, `duckdb` e `pyarrow`; e para os
-testes declarativos, `dbt-duckdb`.
+2a, `moabb`, `braindecode` e `torch`; para o modelo e as métricas, `scikit-learn`; para baixar o modelo pré-treinado, `huggingface-hub` e
+`safetensors`; para a camada analítica, `duckdb` e `pyarrow`; e para os testes declarativos, `dbt-duckdb`.
 Instalação com `uv sync --locked` (bloco **Reprodução**, topo).
 
 ## 10. Dados
@@ -338,8 +340,8 @@ flowchart LR
 
 **Etapas de treino:**
 
-1. **Pré-treino:** não usado. Não há modelo de EEG pré-treinado com procedência de dados conhecida,
-   então o transfer learning não se aplica.
+1. **Pré-treino:** não usado nos dois modelos, treinados do zero. Um modelo de fundação pré-treinado
+   em outro corpus é testado como extrator fixo na seção 14.
 2. **Treino supervisionado:** do zero, com todos os pesos.
 3. **Ajuste por preferência:** não se aplica (é etapa de modelos de linguagem).
 4. **Inferência:** pesos fixos em `models/eegconformer.pt` e `models/mlp.pt`.
@@ -400,7 +402,66 @@ paciente também não é usado, porque o teste tem só 2 pacientes.
 - A saída do modelo não é probabilidade calibrada.
 - Voluntários saudáveis em laboratório.
 
-## 14. Estrutura
+## 14. Embeddings e vizinhos (modelo de fundação)
+
+**Abordagem:** embeddings de um modelo pré-treinado + busca de vizinhos mais próximos. É a abordagem
+da aula que se aplica a EEG sem converter o sinal em imagem ou texto.
+
+**Modelo:** CBraMod — Wang et al., *CBraMod: A Criss-Cross Brain Foundation Model for EEG Decoding*,
+ICLR 2025 ([arXiv 2412.07236](https://arxiv.org/abs/2412.07236)). Pesos
+[`braindecode/cbramod-pretrained`](https://huggingface.co/braindecode/cbramod-pretrained) (BSD-3,
+commit `584cdc4` fixado no código), via `braindecode.models.CBraMod` 1.8.1. Pré-treino
+auto-supervisionado no corpus TUEG (EEG clínico da Temple University), que **não inclui o 2a**. Usado
+congelado, sem ajuste fino.
+
+**Entrada e embedding** ([`src/embed.py`](src/embed.py)): 22 canais, filtro 0,3–75 Hz, 200 Hz e escala
+µV/100, como no pré-treino. Duas janelas de 1 s por trial (o modelo usa trechos de 1 s): repouso de 1 s
+antes do cue até o cue e intenção de 1,5 s a 2,5 s após o cue, com os mesmos `sample_id` de
+`fact_prediction`. O embedding é a saída do encoder com os 22 canais concatenados (4.400 dimensões),
+centrada pela média do treino e normalizada; a semelhança é o cosseno. A média sobre os canais foi
+testada e descartada (25% → 16% de vizinhos do mesmo sujeito e área sob a curva ROC do kNN de 0,535 →
+0,506), porque apaga a diferença entre C3 e C4.
+
+**Resultados** em [`data/embeddings/`](data/embeddings/), com `model_version` em todas as linhas:
+
+- `fact_embedding.parquet`: uma linha por amostra (10.368), com `sample_id`, `trial_id`, `subject_id`,
+  `window`, `split`, `has_artifact` e as coordenadas do t-SNE;
+- `fact_neighbor.parquet`: 10 vizinhos por amostra, com `cosine_sim`, `same_subject` e `same_trial`, em
+  duas buscas: `todos` (contra todas as amostras) e `treino` (validação e teste contra só A01–A05);
+- `pares_vizinhos.png`: espectro de C3/Cz/C4 de amostras de teste ao lado do 1º vizinho no treino.
+
+Os vetores não são gravados: são uma transformação direta do sinal, e a licença CC BY-ND restringe
+derivados (seção 2). Figuras e métricas no fim de
+[`notebooks/02_modelo_2a.ipynb`](notebooks/02_modelo_2a.ipynb).
+
+| verificação | resultado |
+|---|---|
+| vizinhos do mesmo sujeito (acaso 11,1%) | 25,4%; de 12,7% (A07) a 48,1% (A09) |
+| 1º vizinho de uma amostra de teste é do mesmo sujeito | 46,6% |
+| vizinhos com a mesma janela (acaso 50%) | 52,3% |
+| quase duplicatas (cosseno > 0,99) | 0; maior cosseno 0,55 |
+| 1º vizinho é a outra janela do mesmo trial | 0,04% |
+| kNN intenção × repouso no teste, área sob a curva ROC | 0,535 (EEGConformer 0,600, MLP 0,561) |
+
+**Interpretação:**
+
+- **Acertou:** sem nenhum rótulo, o embedding agrupa por pessoa — A09 forma um grupo próprio no
+  t-SNE. É o **EEG fingerprinting** da seção 5, agora medido, e ajuda a explicar o domain shift da
+  seção 13: a semelhança de pessoa pesa mais que a de tarefa.
+- **Sem vazamento:** nenhuma quase duplicata entre treino e teste.
+- **Errou:** não separa intenção de repouso. O kNN fica perto do acaso e abaixo dos dois modelos
+  supervisionados; nos pares lado a lado, o vizinho mais parecido de um repouso é uma intenção.
+- **Por quê:** o pré-treino reconstrói EEG clínico sem rótulo de tarefa, então o embedding reflete o
+  que mais varia nesses dados (pessoa, amplitude, espectro de fundo), não a dessincronização mu/beta
+  da imagética. O modelo foi usado congelado; os resultados do artigo vêm de ajuste fino.
+- **Não é possível afirmar:** que o CBraMod não serve à tarefa (ajuste fino não foi testado); que o
+  agrupamento por sujeito vem do cérebro e não do registro (eletrodos, ruído, sessão); nada sobre
+  distâncias globais do t-SNE.
+
+**Limitações:** só 2 sujeitos de teste; k = 10 fixado sem ajuste; janela de 1 s, mais curta que a de
+1,5 s da seção 13; montagem e amplificador diferentes do corpus de pré-treino.
+
+## 15. Estrutura
 
 ```
 .
@@ -409,13 +470,15 @@ paciente também não é usado, porque o teste tem só 2 pacientes.
 ├── uv.lock                              # lock completo (uv sync --locked)
 ├── src/
 │   ├── ingest.py                        # ingestão -> tabelas do esquema estrela (Parquet)
-│   └── train.py                         # treino do EEGConformer e do MLP + predições
+│   ├── train.py                         # treino do EEGConformer e do MLP + predições
+│   └── embed.py                         # embeddings do CBraMod + vizinhos
 ├── data/processed/                       # Prata: Parquet + CSV da camada analítica (versionados)
 ├── data/gold/                            # Ouro: agregado gerado pelo dbt (versionado)
 ├── data/predictions/                     # predições e histórico de treino (versionados)
+├── data/embeddings/                      # t-SNE, vizinhos e figura dos pares (versionados)
 ├── models/                               # pesos do EEGConformer e do MLP (versionados)
 ├── dbt/                                  # projeto dbt: testes declarativos + modelo Ouro
 └── notebooks/
     ├── 01_dados_2a.ipynb                # exploração, camada analítica (DuckDB) e qualidade
-    └── 02_modelo_2a.ipynb               # pipeline, overfitting, matriz de confusão, métricas e erros
+    └── 02_modelo_2a.ipynb               # pipeline, overfitting, matriz de confusão, métricas, erros e embeddings
 ```

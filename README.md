@@ -107,8 +107,8 @@ flowchart LR
 ## Tarefa 4 — Redes neurais e avaliação
 
 **Pergunta:** o modelo diz se a pessoa está em **repouso** ou com **intenção** de movimento, em
-pessoas que ele nunca viu? Cada tentativa dá 2 janelas de 1,5 segundo: uma antes da seta na tela
-(repouso) e uma depois (intenção).
+pessoas que ele nunca viu? Cada tentativa dá 2 trechos de 1,5 segundo do sinal: um logo antes da seta
+na tela (repouso) e um de 1,5 a 3 segundos depois dela (intenção).
 
 ### Escolhas
 
@@ -180,8 +180,8 @@ pessoas da validação não serve para as do teste:
 
 ## Tarefa 5 — Embeddings, CLIP e modelos de visão e linguagem
 
-**Ideia:** um modelo já pré-treinado transforma cada janela em um **embedding** (4.400 números que
-a resumem). Janelas com embeddings parecidos são **vizinhas**.
+**Ideia:** um modelo já pré-treinado transforma cada trecho em um **embedding** (4.400 números que
+o resumem). Trechos com embeddings parecidos são **vizinhos**.
 
 ### Escolhas
 
@@ -196,7 +196,7 @@ flowchart LR
 | Abordagem | **embeddings + busca de vizinhos** | funciona direto no sinal elétrico do cérebro |
 | Modelo | **CBraMod** | pré-treinado sem os dados deste projeto (não viu o teste), pesos públicos |
 | Uso do modelo | **congelado** | os pesos não mudam: testa só o que ele já sabe do pré-treino |
-| Busca | **exata** | compara todas as janelas entre si; 10 mil janelas cabem em segundos |
+| Busca | **exata** | compara todos os trechos entre si; 10 mil trechos cabem em segundos |
 | Quase duplicatas | **os 4 passos**: vizinho, ordenar, inspecionar, corrigir | procurar cópias entre treino e teste |
 
 ### Resultados
@@ -205,10 +205,10 @@ flowchart LR
 |---|---|
 | Cópias entre treino e teste | **nenhuma** |
 | Vizinhos da mesma pessoa (acaso: 11%, 1 em 9 pessoas) | **25,4%** |
-| Vizinhos do mesmo tipo de janela (acaso: 50%) | 52,3% |
+| Vizinhos do mesmo tipo de trecho (acaso: 50%) | 52,3% |
 
-Semelhança de cada janela de teste com a vizinha mais parecida: nenhuma chega perto de 0,99
-(linha tracejada), o limite para ser considerada cópia.
+Semelhança de cada trecho de teste com o vizinho mais parecido: nenhum chega perto de 0,99
+(linha tracejada), o limite para ser considerado cópia.
 
 <img src="figuras/semelhanca_vizinhos.png" width="520" alt="Histograma da semelhança com o vizinho mais parecido">
 
@@ -233,11 +233,11 @@ xychart-beta
 ```
 
 O mapa t-SNE (embeddings projetados em 2 dimensões) mostra o mesmo: colorindo por pessoa, A09
-(amarelo) forma um grupo próprio; colorindo por janela, repouso e intenção se misturam.
+(amarelo) forma um grupo próprio; colorindo por tipo de trecho, repouso e intenção se misturam.
 
-<img src="figuras/tsne.png" width="720" alt="Mapa t-SNE colorido por pessoa e por janela">
+<img src="figuras/tsne.png" width="720" alt="Mapa t-SNE colorido por pessoa e por tipo de trecho">
 
-Para separar repouso de intenção, cada janela de teste recebe a classe da maioria dos seus 10
+Para separar repouso de intenção, cada trecho de teste recebe a classe da maioria dos seus 10
 vizinhos. Essa votação fica abaixo dos dois modelos da Tarefa 4:
 
 ```mermaid
@@ -258,10 +258,10 @@ xychart-beta
     line [0.5, 0.5, 0.5]
 ```
 
-Azul: janela de teste. Laranja: a vizinha mais parecida no treino. Na primeira fileira, um repouso
-tem como vizinha uma intenção: parecido para o modelo não quer dizer mesma classe.
+Azul: trecho de teste. Laranja: o vizinho mais parecido no treino. Na primeira fileira, um repouso
+tem como vizinho uma intenção: parecido para o modelo não quer dizer mesma classe.
 
-<img src="data/embeddings/pares_vizinhos.png" width="700" alt="Janela de teste ao lado da vizinha mais parecida no treino">
+<img src="data/embeddings/pares_vizinhos.png" width="700" alt="Trecho de teste ao lado do vizinho mais parecido no treino">
 
 **Conclusões:**
 

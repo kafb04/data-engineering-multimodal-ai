@@ -106,102 +106,121 @@ flowchart LR
 
 ## Tarefa 4 — Redes neurais e avaliação
 
-**Pergunta:** o modelo diz se a pessoa está em **repouso** ou com **intenção** de movimento, em
-pessoas que ele nunca viu? Cada tentativa dá 2 trechos de 1,5 segundo do sinal: um logo antes da seta
-na tela (repouso) e um de 1,5 a 3 segundos depois dela (intenção).
+> **Pergunta:** só pelo sinal, um modelo sabe se a pessoa está em **repouso** ou com **intenção** de
+> se mexer, mesmo em pessoas que ele **nunca viu**?
 
-### Escolhas
+### Como
 
 ```mermaid
 flowchart LR
-    E2["treino supervisionado"]:::sim --> E4["inferência"]:::sim
-    classDef sim fill:#2E7D32,color:#fff,stroke:#1B5E20
+    S["tentativa"] --> R["repouso<br/>1,5 s antes da seta"]
+    S --> I["intenção<br/>1,5 a 3 s depois da seta"]
+    R & I --> D{"divisão<br/>por pessoa"}
+    D --> TR["treino<br/>A01–A05"]
+    D --> VA["validação<br/>A06–A07"]
+    D --> TE["teste<br/>A08–A09"]
+    TR --> M["EEGConformer<br/>× MLP"]
+    VA -->|"escolhe época<br/>e limiar"| M
+    M --> TE
 ```
 
-| tema | **escolhi** | por quê |
+| | EEGConformer | Perceptron multicamadas (MLP) |
 |---|---|---|
-| Etapas de treino | **treino supervisionado + inferência** | os modelos são treinados do zero, direto com os rótulos de repouso e intenção, e depois usados para prever |
-| Rede neural | **EEGConformer** × **perceptron multicamadas (MLP)** | o primeiro lê o sinal inteiro (convolução + atenção); o segundo, só a força dos ritmos cerebrais. Mostra se ler o sinal completo ajuda |
-| Pré-processamento | **z-score**, só com o treino | deixa cada variável com média 0 e desvio 1; usar só o treino evita vazar informação do teste |
-| Contra overfitting | **dropout, penalização dos pesos e parada antecipada** | desliga neurônios ao acaso, impede pesos grandes e para quando a validação não melhora: evita que o modelo decore o treino |
-| Divisão | **por pessoa**: treino A01–A05, validação A06–A07, teste A08–A09 | testar em quem o modelo nunca viu |
-| Testes estatísticos | **McNemar, DeLong e qui-quadrado, com correção de Holm** | McNemar compara os acertos dos dois modelos; DeLong, as áreas sob a curva ROC; qui-quadrado, o acerto entre grupos; Holm corrige por fazer vários testes |
+| **Entrada** | o sinal inteiro | só a força dos ritmos cerebrais |
+| **Arquitetura** | convolução + atenção | camadas totalmente ligadas |
 
-### Resultados
+Os dois são treinados do zero com os rótulos (treino supervisionado) e depois usados para prever
+(inferência). Comparar os dois mostra se ler o sinal completo ajuda.
 
-**Quando parar de treinar para evitar overfitting:** com mais épocas, o modelo começa a decorar o
-treino: o erro no treino (azul) continua caindo, mas o erro nas pessoas da validação (laranja) não
-cai junto; no MLP, chega a subir. Para não usar esse modelo decorado, guardamos a época em que ele ia
-melhor na validação (linha tracejada).
+| cuidado | como |
+|---|---|
+| Não vazar o teste | **z-score** (média 0, desvio 1) calculado só com o treino |
+| Não decorar o treino | **dropout**, penalização dos pesos e **parada antecipada** |
+| Comparar com rigor | **McNemar** (acertos), **DeLong** (área ROC), **qui-quadrado** (grupos), com correção de **Holm** |
+
+### Resultado 1 — Treinar demais faz o modelo decorar
 
 <img src="figuras/curvas_treino.png" width="720" alt="Perda e área sob a curva ROC por época">
 
-**Curva ROC no teste:** mostra sensibilidade × erros no repouso em todos os limiares. Quanto mais
-acima da linha tracejada (acaso), melhor. O ponto marca o limiar escolhido na validação.
+O erro no treino (azul) cai sempre; o da validação (laranja) não acompanha e, no MLP, sobe.
+**Guardamos a época em que a validação ia melhor** (linha tracejada).
+
+### Resultado 2 — O EEGConformer é melhor, mas pouco acima do chute
 
 <img src="figuras/curva_roc.png" width="400" alt="Curva ROC do EEGConformer e do perceptron multicamadas no teste">
 
-| no teste | sensibilidade | especificidade | acurácia |
+Quanto mais longe da diagonal tracejada (chute), melhor. Área: **0,60** × 0,56 (DeLong, p = 0,018).
+
+| no teste | intenções detectadas | repousos detectados | acurácia |
 |---|---|---|---|
 | **EEGConformer** | 78,0% | 37,2% | **57,6%** |
-| Perceptron multicamadas | 74,3% | 35,8% | 55,0% |
+| MLP | 74,3% | 35,8% | 55,0% |
 
-Os dois acertam a maioria das intenções e erram a maioria dos repousos: tendem a responder "intenção".
-
-**Matriz de confusão no teste** (linha = verdade, coluna = resposta do modelo). Com o limiar da
-validação, os dois modelos respondem "intenção" na maioria dos repousos. O limiar que servia para as
-pessoas da validação não serve para as do teste:
+### Resultado 3 — Os modelos respondem "intenção" quase sempre
 
 <img src="figuras/matriz_confusao.png" width="520" alt="Matriz de confusão dos dois modelos no teste">
 
-- O EEGConformer separa melhor as classes (DeLong, p = 0,018), mas os dois ficam pouco acima do chute.
-- A nota cai de 0,76 na validação para 0,60 no teste: **cada cérebro é diferente** (domain shift).
-- O acerto muda entre as pessoas de teste (61% × 54%, p = 0,002), mas não com o movimento nem com o ruído: o que pesa é a pessoa.
+Linha = verdade, coluna = resposta. À direita, com o limiar escolhido na validação, a maioria dos
+repousos vira "intenção" (723 de 1.152 no EEGConformer): **o limiar que servia para A06–A07 não
+serve para A08–A09.**
+
+### Resposta
+
+**Pouco.** A área ROC cai de **0,76** na validação para **0,60** no teste, e o acerto muda entre as
+duas pessoas de teste (61% × 54%, p = 0,002), mas não com o movimento nem com o ruído.
+**Cada cérebro é diferente** (domain shift): o que pesa é a pessoa.
 
 ---
 
-## Tarefa 5 — Embeddings, CLIP e modelos de visão e linguagem
+## Tarefa 5 — Embeddings
 
-**Ideia:** um modelo já pré-treinado transforma cada trecho em um **embedding** (4.400 números que
-o resumem). Trechos com embeddings parecidos são **vizinhos**.
+> **Pergunta:** um modelo pré-treinado em muitos sinais cerebrais (**CBraMod**) ajuda a entender a
+> Tarefa 4? Há **cópias** entre treino e teste? Ele separa **repouso** de **intenção**?
 
-### Escolhas
+### Como
 
 ```mermaid
 flowchart LR
-    Q(["sinal cerebral"]) --> O1["embeddings +<br/>busca de vizinhos"]:::sim
-    classDef sim fill:#2E7D32,color:#fff,stroke:#1B5E20
+    T["trecho de 1 s<br/>repouso ou intenção"] --> C["CBraMod<br/>congelado"]
+    C --> E["embedding<br/>4.400 números"]
+    E --> V["10 vizinhos<br/>mais parecidos"]
+    V --> Q1["cópias?"]
+    V --> Q2["de quem<br/>é o vizinho?"]
+    V --> Q3["votação:<br/>repouso ou intenção?"]
 ```
 
-| tema | **escolhi** | por quê |
-|---|---|---|
-| Abordagem | **embeddings + busca de vizinhos** | funciona direto no sinal elétrico do cérebro |
-| Modelo | **CBraMod** | pré-treinado sem os dados deste projeto (não viu o teste), pesos públicos |
-| Uso do modelo | **congelado** | os pesos não mudam: testa só o que ele já sabe do pré-treino |
-| Busca | **exata** | compara todos os trechos entre si; 10 mil trechos cabem em segundos |
-| Quase duplicatas | **os 4 passos**: vizinho, ordenar, inspecionar, corrigir | procurar cópias entre treino e teste |
+- **Embedding:** lista de números que resume o trecho. Trechos parecidos têm embeddings próximos (**vizinhos**).
+- **Congelado:** os pesos não mudam, então mede só o que o modelo já sabia do pré-treino, feito sem estes dados.
+- **Busca exata:** cada trecho é comparado com todos os outros (10 mil trechos levam segundos).
 
-### Resultados
-
-| verificação | resultado |
-|---|---|
-| Cópias entre treino e teste | **nenhuma** |
-| Vizinhos da mesma pessoa (acaso: 11%, 1 em 9 pessoas) | **25,4%** |
-| Vizinhos do mesmo tipo de trecho (acaso: 50%) | 52,3% |
-
-Semelhança de cada trecho de teste com o vizinho mais parecido: nenhum chega perto de 0,99
-(linha tracejada), o limite para ser considerado cópia.
+### Resultado 1 — Nenhuma cópia entre treino e teste
 
 <img src="figuras/semelhanca_vizinhos.png" width="520" alt="Histograma da semelhança com o vizinho mais parecido">
 
-O modelo **agrupa por pessoa**, não por intenção. O mapa t-SNE (embeddings projetados em 2
-dimensões) mostra isso: colorindo por pessoa, A09
-(amarelo) forma um grupo próprio; colorindo por tipo de trecho, repouso e intenção se misturam.
+Semelhança de cada trecho de teste com o vizinho mais parecido. Nenhum passa de 0,55; cópia seria
+perto de **0,99** (linha tracejada).
+
+<img src="data/embeddings/pares_vizinhos.png" width="700" alt="Trecho de teste ao lado do vizinho mais parecido no treino">
+
+Inspeção dos pares mais, médio e menos parecidos (azul: teste; laranja: vizinho no treino). Mesmo o
+par mais parecido (1ª fileira) é de pessoas e classes diferentes: um repouso de A08 ao lado de uma
+intenção de A02.
+
+### Resultado 2 — O modelo agrupa por pessoa, não por intenção
 
 <img src="figuras/tsne.png" width="720" alt="Mapa t-SNE colorido por pessoa e por tipo de trecho">
 
-Para separar repouso de intenção, cada trecho de teste recebe a classe da maioria dos seus 10
-vizinhos. Essa votação fica abaixo dos dois modelos da Tarefa 4:
+Embeddings projetados em 2 dimensões (t-SNE). À esquerda, cor = pessoa: A09 (amarelo) forma um grupo
+próprio. À direita, cor = classe: repouso e intenção se misturam.
+
+| o vizinho é... | acaso | obtido |
+|---|---|---|
+| da **mesma pessoa** | 11% (1 em 9) | **25,4%** |
+| da **mesma classe** | 50% | 52,3% |
+
+### Resultado 3 — Votar pelos vizinhos é pior que os modelos da Tarefa 4
+
+Cada trecho de teste recebe a classe da maioria dos seus 10 vizinhos no treino.
 
 ```mermaid
 ---
@@ -215,19 +234,14 @@ config:
 ---
 xychart-beta
     title "Área sob a curva ROC no teste (linha vermelha = chute)"
-    x-axis ["EEGConformer", "Perceptron", "Vizinhos"]
+    x-axis ["EEGConformer", "MLP", "Vizinhos"]
     y-axis 0.4 --> 0.8
     bar [0.600, 0.561, 0.535]
     line [0.5, 0.5, 0.5]
 ```
 
-Azul: trecho de teste. Laranja: o vizinho mais parecido no treino. Na primeira fileira, um repouso
-tem como vizinho uma intenção: parecido para o modelo não quer dizer mesma classe.
+### Resposta
 
-<img src="data/embeddings/pares_vizinhos.png" width="700" alt="Trecho de teste ao lado do vizinho mais parecido no treino">
-
-**Conclusões:**
-
-- Não há cópias entre treino e teste, então os resultados da Tarefa 4 não foram inflados.
-- O modelo reconhece **de quem é o sinal** (impressão digital cerebral), o que explica a queda da Tarefa 4.
-- O modelo não reconhece a intenção: foi pré-treinado sem saber o que a pessoa fazia e usado congelado.
+- **Sem cópias:** os resultados da Tarefa 4 não foram inflados.
+- **O modelo reconhece de quem é o sinal** (impressão digital cerebral): isso explica a queda da Tarefa 4.
+- **Não reconhece a intenção:** foi pré-treinado sem saber o que a pessoa fazia e usado congelado.

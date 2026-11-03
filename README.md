@@ -124,9 +124,9 @@ flowchart LR
 | tema | **escolhi** | por quê |
 |---|---|---|
 | Etapas de treino | **treino supervisionado + inferência** | modelos treinados do zero |
-| Rede neural | **EEGConformer** × **perceptron multicamadas** | o primeiro lê o sinal inteiro; o segundo, só a força dos ritmos cerebrais |
+| Rede neural | **EEGConformer** × **perceptron multicamadas (MLP)** | o primeiro lê o sinal inteiro; o segundo, só a força dos ritmos cerebrais |
 | Pré-processamento | **z-score**, só com o treino | não há categorias para one-hot |
-| Contra overfitting | **dropout, penalização dos pesos e parada antecipada** | — |
+| Contra overfitting | **dropout, penalização dos pesos e parada antecipada** | evitar que o modelo decore o treino |
 | Divisão | **por pessoa**: treino A01–A05, validação A06–A07, teste A08–A09 | testar em quem o modelo nunca viu |
 | Testes estatísticos | **McNemar, DeLong e qui-quadrado, com correção de Holm** | bootstrap não: só 2 pessoas no teste |
 
@@ -138,7 +138,7 @@ guardado é o da época com maior área sob a curva ROC na validação (linha tr
 <img src="figuras/curvas_treino.png" width="720" alt="Perda e área sob a curva ROC por época">
 
 **Curva ROC no teste:** mostra sensibilidade × erros no repouso em todos os limiares. Quanto mais
-acima da linha tracejada (acaso), melhor. O ponto marca o limiar escolhido na validação; "mlp" é o perceptron multicamadas.
+acima da linha tracejada (acaso), melhor. O ponto marca o limiar escolhido na validação.
 
 <img src="figuras/curva_roc.png" width="400" alt="Curva ROC do EEGConformer e do perceptron multicamadas no teste">
 
@@ -240,6 +240,8 @@ O mapa t-SNE (embeddings projetados em 2 dimensões) mostra o mesmo: colorindo p
 
 <img src="figuras/tsne.png" width="720" alt="Mapa t-SNE colorido por pessoa e por janela">
 
+Para separar repouso de intenção, a votação dos 10 vizinhos fica abaixo dos dois modelos da Tarefa 4:
+
 ```mermaid
 ---
 config:
@@ -263,6 +265,8 @@ tem como vizinha uma intenção.
 
 <img src="data/embeddings/pares_vizinhos.png" width="700" alt="Janela de teste ao lado da vizinha mais parecida no treino">
 
-- ✔ Sem cópias: os resultados da Tarefa 4 não foram inflados.
-- ✔ O modelo reconhece **de quem é o sinal** (impressão digital cerebral), o que explica a queda da Tarefa 4.
-- ✘ Não reconhece a intenção: foi pré-treinado sem saber o que a pessoa fazia e usado sem ajuste fino.
+**Conclusões:**
+
+- Não há cópias entre treino e teste, então os resultados da Tarefa 4 não foram inflados.
+- O modelo reconhece **de quem é o sinal** (impressão digital cerebral), o que explica a queda da Tarefa 4.
+- O modelo não reconhece a intenção: foi pré-treinado sem saber o que a pessoa fazia e usado sem ajuste fino.

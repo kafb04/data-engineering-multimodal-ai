@@ -137,14 +137,10 @@ na fonte).
 
 ```mermaid
 flowchart TD
-    A["5.184 trials"] --> B["remove trials com artefato<br/>(só treino e validação)"]
-    B --> C["2 janelas de 1,5 s por trial"]
-    C --> R["repouso<br/>1,5 s antes do cue"]
-    C --> I["intenção<br/>1,5–3,0 s após o cue"]
-    R & I --> S{"divisão por sujeito"}
-    S --> TR["treino A01–A05<br/>5.356 amostras"]
-    S --> VA["validação A06–A07<br/>1.964 amostras"]
-    S --> TE["teste A08–A09<br/>2.304 amostras"]
+    A["5.184 trials<br/>2 janelas de 1,5 s: repouso e intenção"]
+    A --> TR["treino A01–A05<br/>5.356 amostras"]
+    A --> VA["validação A06–A07<br/>1.964 amostras"]
+    A --> TE["teste A08–A09<br/>2.304 amostras"]
     TR --> M1["EEGConformer<br/>sinal bruto 22 × 192"]
     TR --> M2["MLP<br/>44 potências mu/beta"]
     VA -->|"escolhe época e limiar"| M1 & M2
@@ -152,6 +148,7 @@ flowchart TD
     TE --> P[("fact_prediction.parquet")]
 ```
 
+- **Janelas:** repouso = 1,5 s antes do cue; intenção = 1,5–3,0 s após o cue. Trials com artefato saem do treino e da validação.
 - **EEGConformer** ([Song et al., 2023](https://doi.org/10.1109/TNSRE.2022.3230250)): convolução + Transformer.
 - **MLP:** log da potência mu (8–12 Hz) e beta (13–30 Hz) por canal.
 - **Contra overfitting:** z-score só no treino, dropout 0,5, L2, parada antecipada pela AUC de validação.
@@ -161,6 +158,15 @@ flowchart TD
 AUC (área sob a curva ROC; 0,5 = acaso):
 
 ```mermaid
+---
+config:
+  xyChart:
+    width: 560
+    height: 260
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#4C78A8, #E45756"
+---
 xychart-beta
     title "AUC na validação e no teste"
     x-axis ["Conformer val", "Conformer teste", "MLP val", "MLP teste"]
@@ -192,7 +198,7 @@ Teste (A08–A09), limiar escolhido na validação:
 **Ideia:** usar um modelo de fundação de EEG **congelado** e ver se amostras parecidas ficam perto.
 
 ```mermaid
-flowchart LR
+flowchart TD
     A["janelas de 1 s<br/>repouso e intenção"] --> B["CBraMod pré-treinado<br/>(congelado, sem ajuste fino)"]
     B --> C["embedding<br/>4.400 dimensões"]
     C --> D["busca exata por cosseno<br/>10 vizinhos"]
@@ -221,6 +227,15 @@ flowchart LR
 O embedding **agrupa por pessoa**, não por tarefa:
 
 ```mermaid
+---
+config:
+  xyChart:
+    width: 560
+    height: 260
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#4C78A8, #E45756"
+---
 xychart-beta
     title "% de vizinhos do mesmo sujeito (acaso = 11%)"
     x-axis [A01, A02, A03, A04, A05, A06, A07, A08, A09]
@@ -232,15 +247,26 @@ xychart-beta
 E não separa intenção de repouso — fica abaixo dos modelos supervisionados:
 
 ```mermaid
+---
+config:
+  xyChart:
+    width: 560
+    height: 260
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#4C78A8, #E45756"
+---
 xychart-beta
     title "AUC no teste: intenção × repouso"
     x-axis ["EEGConformer", "MLP", "kNN CBraMod"]
-    y-axis "AUC" 0.4 --> 0.7
+    y-axis "AUC" 0.4 --> 0.8
     bar [0.600, 0.561, 0.535]
     line [0.5, 0.5, 0.5]
 ```
 
-![Espectro de amostras de teste ao lado do 1º vizinho no treino](data/embeddings/pares_vizinhos.png)
+Amostras de teste (—) ao lado do 1º vizinho no treino (--): o vizinho mais parecido de um repouso é uma intenção.
+
+<img src="data/embeddings/pares_vizinhos.png" width="700" alt="Espectro de amostras de teste ao lado do 1º vizinho no treino">
 
 **Leitura:**
 

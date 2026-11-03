@@ -110,25 +110,22 @@ flowchart LR
 pessoas que ele nunca viu? Cada tentativa dá 2 janelas de 1,5 segundo: uma antes da seta na tela
 (repouso) e uma depois (intenção).
 
-### Escolhas (verde = usado)
+### Escolhas
 
 ```mermaid
 flowchart LR
-    E1["pré-treino"]:::nao --> E2["treino supervisionado"]:::sim
-    E2 --> E3["ajuste por preferência"]:::nao
-    E3 --> E4["inferência"]:::sim
+    E2["treino supervisionado"]:::sim --> E4["inferência"]:::sim
     classDef sim fill:#2E7D32,color:#fff,stroke:#1B5E20
-    classDef nao fill:#EEEEEE,color:#999,stroke:#BBBBBB,stroke-dasharray:4 3
 ```
 
 | tema | **escolhi** | por quê |
 |---|---|---|
-| Etapas de treino | **treino supervisionado + inferência** | modelos treinados do zero |
-| Rede neural | **EEGConformer** × **perceptron multicamadas (MLP)** | o primeiro lê o sinal inteiro; o segundo, só a força dos ritmos cerebrais |
-| Pré-processamento | **z-score**, só com o treino | não há categorias para one-hot |
-| Contra overfitting | **dropout, penalização dos pesos e parada antecipada** | evitar que o modelo decore o treino |
+| Etapas de treino | **treino supervisionado + inferência** | os modelos são treinados do zero, direto com os rótulos de repouso e intenção, e depois usados para prever |
+| Rede neural | **EEGConformer** × **perceptron multicamadas (MLP)** | o primeiro lê o sinal inteiro (convolução + atenção); o segundo, só a força dos ritmos cerebrais. Mostra se ler o sinal completo ajuda |
+| Pré-processamento | **z-score**, só com o treino | deixa cada variável com média 0 e desvio 1; usar só o treino evita vazar informação do teste |
+| Contra overfitting | **dropout, penalização dos pesos e parada antecipada** | desliga neurônios ao acaso, impede pesos grandes e para quando a validação não melhora: evita que o modelo decore o treino |
 | Divisão | **por pessoa**: treino A01–A05, validação A06–A07, teste A08–A09 | testar em quem o modelo nunca viu |
-| Testes estatísticos | **McNemar, DeLong e qui-quadrado, com correção de Holm** | bootstrap não: só 2 pessoas no teste |
+| Testes estatísticos | **McNemar, DeLong e qui-quadrado, com correção de Holm** | McNemar compara os acertos dos dois modelos; DeLong, as áreas sob a curva ROC; qui-quadrado, o acerto entre grupos; Holm corrige por fazer vários testes |
 
 ### Resultados
 
@@ -167,14 +164,17 @@ xychart-beta
 | **EEGConformer** | 78,0% | 37,2% | **57,6%** |
 | Perceptron multicamadas | 74,3% | 35,8% | 55,0% |
 
+Os dois acertam a maioria das intenções e erram a maioria dos repousos: tendem a responder "intenção".
+
 **Matriz de confusão no teste** (linha = verdade, coluna = resposta do modelo). Com o limiar da
-validação, os dois modelos respondem "intenção" na maioria dos repousos:
+validação, os dois modelos respondem "intenção" na maioria dos repousos. O limiar que servia para as
+pessoas da validação não serve para as do teste:
 
 <img src="figuras/matriz_confusao.png" width="520" alt="Matriz de confusão dos dois modelos no teste">
 
 - O EEGConformer separa melhor as classes (DeLong, p = 0,018), mas os dois ficam pouco acima do chute.
 - A nota cai de 0,76 na validação para 0,60 no teste: **cada cérebro é diferente** (domain shift).
-- O acerto muda entre as pessoas de teste (61% × 54%, p = 0,002), mas não com o movimento nem com o ruído.
+- O acerto muda entre as pessoas de teste (61% × 54%, p = 0,002), mas não com o movimento nem com o ruído: o que pesa é a pessoa.
 
 ---
 
@@ -183,23 +183,20 @@ validação, os dois modelos respondem "intenção" na maioria dos repousos:
 **Ideia:** um modelo já pré-treinado transforma cada janela em um **embedding** (4.400 números que
 a resumem). Janelas com embeddings parecidos são **vizinhas**.
 
-### Escolhas (verde = usado)
+### Escolhas
 
 ```mermaid
 flowchart LR
     Q(["sinal cerebral"]) --> O1["embeddings +<br/>busca de vizinhos"]:::sim
-    Q --> O2["CLIP<br/>imagem + texto"]:::nao
-    Q --> O3["modelo de visão<br/>e linguagem"]:::nao
     classDef sim fill:#2E7D32,color:#fff,stroke:#1B5E20
-    classDef nao fill:#EEEEEE,color:#999,stroke:#BBBBBB,stroke-dasharray:4 3
 ```
 
 | tema | **escolhi** | por quê |
 |---|---|---|
-| Abordagem | **embeddings + busca de vizinhos** | as outras exigem imagem ou texto |
-| Modelo | **CBraMod**, no lugar do BIOT | pré-treinado sem os dados deste projeto, pesos públicos |
-| Uso do modelo | **congelado**, sem ajuste fino | testa o que ele já sabe |
-| Busca | **exata**, sem banco vetorial | 10 mil janelas cabem em segundos |
+| Abordagem | **embeddings + busca de vizinhos** | funciona direto no sinal elétrico do cérebro |
+| Modelo | **CBraMod** | pré-treinado sem os dados deste projeto (não viu o teste), pesos públicos |
+| Uso do modelo | **congelado** | os pesos não mudam: testa só o que ele já sabe do pré-treino |
+| Busca | **exata** | compara todas as janelas entre si; 10 mil janelas cabem em segundos |
 | Quase duplicatas | **os 4 passos**: vizinho, ordenar, inspecionar, corrigir | procurar cópias entre treino e teste |
 
 ### Resultados
@@ -207,7 +204,7 @@ flowchart LR
 | verificação | resultado |
 |---|---|
 | Cópias entre treino e teste | **nenhuma** |
-| Vizinhos da mesma pessoa (acaso: 11%) | **25,4%** |
+| Vizinhos da mesma pessoa (acaso: 11%, 1 em 9 pessoas) | **25,4%** |
 | Vizinhos do mesmo tipo de janela (acaso: 50%) | 52,3% |
 
 Semelhança de cada janela de teste com a vizinha mais parecida: nenhuma chega perto de 0,99
@@ -240,7 +237,8 @@ O mapa t-SNE (embeddings projetados em 2 dimensões) mostra o mesmo: colorindo p
 
 <img src="figuras/tsne.png" width="720" alt="Mapa t-SNE colorido por pessoa e por janela">
 
-Para separar repouso de intenção, a votação dos 10 vizinhos fica abaixo dos dois modelos da Tarefa 4:
+Para separar repouso de intenção, cada janela de teste recebe a classe da maioria dos seus 10
+vizinhos. Essa votação fica abaixo dos dois modelos da Tarefa 4:
 
 ```mermaid
 ---
@@ -261,7 +259,7 @@ xychart-beta
 ```
 
 Azul: janela de teste. Laranja: a vizinha mais parecida no treino. Na primeira fileira, um repouso
-tem como vizinha uma intenção.
+tem como vizinha uma intenção: parecido para o modelo não quer dizer mesma classe.
 
 <img src="data/embeddings/pares_vizinhos.png" width="700" alt="Janela de teste ao lado da vizinha mais parecida no treino">
 
@@ -269,4 +267,4 @@ tem como vizinha uma intenção.
 
 - Não há cópias entre treino e teste, então os resultados da Tarefa 4 não foram inflados.
 - O modelo reconhece **de quem é o sinal** (impressão digital cerebral), o que explica a queda da Tarefa 4.
-- O modelo não reconhece a intenção: foi pré-treinado sem saber o que a pessoa fazia e usado sem ajuste fino.
+- O modelo não reconhece a intenção: foi pré-treinado sem saber o que a pessoa fazia e usado congelado.

@@ -15,3 +15,6 @@ dbt/logs/
 dbt/.user.yml
 
 .DS_Store
+
+# vetores de embedding: só locais (licença CC BY-ND, ~180 MB); gerados por src.embed
+data/embeddings/embedding_vectors.parquet

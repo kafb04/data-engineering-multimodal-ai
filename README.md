@@ -412,7 +412,9 @@ ICLR 2025 ([arXiv 2412.07236](https://arxiv.org/abs/2412.07236)). Pesos
 [`braindecode/cbramod-pretrained`](https://huggingface.co/braindecode/cbramod-pretrained) (BSD-3,
 commit `584cdc4` fixado no código), via `braindecode.models.CBraMod` 1.8.1. Pré-treino
 auto-supervisionado no corpus TUEG (EEG clínico da Temple University), que **não inclui o 2a**. Usado
-congelado, sem ajuste fino.
+congelado, sem ajuste fino. Escolhido no lugar do BIOT (o codificador de EEG citado na aula) porque o
+pré-treino usa um único corpus, de procedência documentada e sem o 2a, e os pesos são públicos no
+Hugging Face, carregados pelo `braindecode` já usado no projeto.
 
 **Entrada e embedding** ([`src/embed.py`](src/embed.py)): 22 canais, filtro 0,3–75 Hz, 200 Hz e escala
 µV/100, como no pré-treino. Duas janelas de 1 s por trial (o modelo usa trechos de 1 s): repouso de 1 s
@@ -424,15 +426,29 @@ testada e descartada (25% → 16% de vizinhos do mesmo sujeito e área sob a cur
 
 **Resultados** em [`data/embeddings/`](data/embeddings/), com `model_version` em todas as linhas:
 
+- `embedding_vectors.parquet` (**só local**, fora do Git): uma linha por amostra, com `sample_id`,
+  `subject_id`, `split` e o vetor em uma coluna do tipo lista (`FLOAT[4400]` no DuckDB);
 - `fact_embedding.parquet`: uma linha por amostra (10.368), com `sample_id`, `trial_id`, `subject_id`,
-  `window`, `split`, `has_artifact` e as coordenadas do t-SNE;
+  `window`, `split`, `has_artifact`, o hash do sinal (`signal_sha1`) e as coordenadas do t-SNE;
 - `fact_neighbor.parquet`: 10 vizinhos por amostra, com `cosine_sim`, `same_subject` e `same_trial`, em
   duas buscas: `todos` (contra todas as amostras) e `treino` (validação e teste contra só A01–A05);
 - `pares_vizinhos.png`: espectro de C3/Cz/C4 de amostras de teste ao lado do 1º vizinho no treino.
 
-Os vetores não são gravados: são uma transformação direta do sinal, e a licença CC BY-ND restringe
-derivados (seção 2). Figuras e métricas no fim de
+Os vetores ficam fora do Git: são uma transformação direta do sinal, a licença CC BY-ND restringe
+derivados (seção 2) e o arquivo tem ~180 MB. Figuras e métricas no fim de
 [`notebooks/02_modelo_2a.ipynb`](notebooks/02_modelo_2a.ipynb).
+
+**Busca:** exata, por cosseno. É feita no scikit-learn para a base inteira e conferida com a mesma
+consulta no DuckDB (`array_cosine_similarity` sobre o Parquet), que devolve os mesmos vizinhos em ~2 s.
+Com ~10 mil vetores, a busca exata é rápida e não perde vizinhos. Um índice aproximado (HNSW, FAISS)
+ou um banco vetorial dedicado (pgvector, Qdrant) só compensaria com milhões de vetores ou consultas
+de uma aplicação; aqui Parquet + DuckDB bastam. O filtro por metadado aparece na busca `treino`, que
+só considera vizinhos de A01–A05.
+
+**Auditoria de quase duplicatas:** (1) para cada amostra de teste, o 1º vizinho no treino; (2) pares
+ordenados por semelhança, com limiar de 0,99; (3) inspeção dos pares de maior semelhança, com IDs e
+espectros; (4) decisão registrada: nada a corrigir, e a divisão por sujeito já mantém cada caso de um
+lado só. O hash do sinal cobre as cópias exatas.
 
 | verificação | resultado |
 |---|---|
@@ -440,6 +456,7 @@ derivados (seção 2). Figuras e métricas no fim de
 | 1º vizinho de uma amostra de teste é do mesmo sujeito | 46,6% |
 | vizinhos com a mesma janela (acaso 50%) | 52,3% |
 | quase duplicatas (cosseno > 0,99) | 0; maior cosseno 0,55 |
+| cópias exatas do sinal (hash) | 0 |
 | 1º vizinho é a outra janela do mesmo trial | 0,04% |
 | kNN intenção × repouso no teste, área sob a curva ROC | 0,535 (EEGConformer 0,600, MLP 0,561) |
 
@@ -475,7 +492,7 @@ derivados (seção 2). Figuras e métricas no fim de
 ├── data/processed/                       # Prata: Parquet + CSV da camada analítica (versionados)
 ├── data/gold/                            # Ouro: agregado gerado pelo dbt (versionado)
 ├── data/predictions/                     # predições e histórico de treino (versionados)
-├── data/embeddings/                      # t-SNE, vizinhos e figura dos pares (versionados)
+├── data/embeddings/                      # t-SNE, vizinhos e figura dos pares (versionados); vetores só locais
 ├── models/                               # pesos do EEGConformer e do MLP (versionados)
 ├── dbt/                                  # projeto dbt: testes declarativos + modelo Ouro
 └── notebooks/

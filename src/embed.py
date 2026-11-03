@@ -8,17 +8,21 @@ centrado pela média do treino e normalizado. Duas buscas de 10 vizinhos por cos
 - `todos`: cada amostra contra todas as outras (vizinhos do mesmo sujeito, quase duplicatas);
 - `treino`: validação e teste contra só os sujeitos de treino (kNN intenção × repouso).
 
-Os vetores de 4.400 dimensões não são gravados (licença CC BY-ND); só IDs, t-SNE e vizinhos.
+Os vetores de 4.400 dimensões vão para `embedding_vectors.parquet`, que fica só local (licença
+CC BY-ND e ~180 MB); no Git ficam IDs, hash do sinal, t-SNE e vizinhos.
 
 Uso: `python -m src.embed`.
 """
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import torch
 from braindecode.datasets import MOABBDataset
 from braindecode.models import CBraMod
@@ -146,10 +150,19 @@ def main():
 
     xy = TSNE(n_components=2, init="pca", random_state=SEED).fit_transform(Z)
     emb = meta.assign(model_version=MODEL_VERSION, tsne_x=xy[:, 0].astype(np.float32),
-                      tsne_y=xy[:, 1].astype(np.float32))
+                      tsne_y=xy[:, 1].astype(np.float32),
+                      # cópia exata do sinal = mesmo hash; o embedding pega as cópias alteradas
+                      signal_sha1=[hashlib.sha1(x.tobytes()).hexdigest() for x in X])
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     emb.to_parquet(OUT_DIR / "fact_embedding.parquet", index=False)
     nb.to_parquet(OUT_DIR / "fact_neighbor.parquet", index=False)
+    # uma linha por amostra, vetor como lista de tamanho fixo (FLOAT[4400] no DuckDB)
+    vectors = pa.table({
+        "sample_id": meta["sample_id"], "subject_id": meta["subject_id"], "split": meta["split"],
+        "model_version": [MODEL_VERSION] * len(meta),
+        "embedding": pa.FixedSizeListArray.from_arrays(pa.array(Z.ravel()), Z.shape[1]),
+    })
+    pq.write_table(vectors, OUT_DIR / "embedding_vectors.parquet")
 
     top1 = nb[(nb["pool"] == "treino") & (nb["split"] == "teste") & (nb["rank"] == 1)]
     top1 = top1.sort_values("cosine_sim", ignore_index=True)

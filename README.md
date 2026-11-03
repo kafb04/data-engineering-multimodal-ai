@@ -4,29 +4,22 @@ Dataset da tese (**decodificação da intenção de movimento**): imagética mot
 em sujeitos saudáveis, carregado em formato pronto para ML via
 [MOABB](https://moabb.neurotechx.com/) / [braindecode](https://braindecode.org/).
 
-> A entrega anterior baseada no eegmmidb (EDF) foi arquivada em
-> [`archive_aula01/aula01_eegmmidb/`](archive_aula01/aula01_eegmmidb/). Este repositório passou a ser
-> exclusivamente sobre o BCI IV 2a.
-
 ## Reprodução
 
 ```powershell
 uv sync --locked                                                # cria .venv a partir do uv.lock
 
 uv run python -m src.ingest                                     # (re)gera data/processed/*.parquet
-uv run jupyter notebook notebooks\01_eda_bci_iv_2a.ipynb        # EDA do 2a
-uv run jupyter notebook notebooks\02_camada_analitica_2a.ipynb  # Parquet + DuckDB
-uv run jupyter notebook notebooks\03_qualidade_2a.ipynb         # métricas de qualidade
-uv run dbt build --project-dir dbt --profiles-dir dbt            # testes declarativos + camada Ouro
-uv run python -m src.train                                      # treina o EEGNet e (re)gera as predições
-uv run jupyter notebook notebooks\04_modelo_2a.ipynb            # métricas e análise de erros
+uv run jupyter notebook notebooks/01_dados_2a.ipynb             # exploração, camada analítica e qualidade
+uv run dbt build --project-dir dbt --profiles-dir dbt           # testes declarativos + camada Ouro
+uv run python -m src.train                                      # treina EEGConformer e MLP e gera as predições
+uv run jupyter notebook notebooks/02_modelo_2a.ipynb            # matriz de confusão, métricas e erros
 ```
 
-O Parquet já vem versionado em `data/processed/` e `data/predictions/`, então os **notebooks 02, 03 e 04
-rodam offline**.
-`src.ingest`, `src.train` e o **notebook 01** baixam o 2a via MOABB na 1ª vez (requer internet).
-Detalhes: ambiente (seção 9), dados (seção 10), esquema estrela (seção 11), qualidade (seção 12),
-modelo (seção 13).
+O Parquet já vem versionado em `data/processed/` e `data/predictions/`, então o **notebook 02 roda
+offline**. `src.ingest`, `src.train` e o **notebook 01** baixam o 2a via MOABB na 1ª vez (requer
+internet). Detalhes: ambiente (seção 9), dados (seção 10), esquema estrela (seção 11), qualidade
+(seção 12), modelo (seção 13).
 
 ## 1. Nome e fonte
 
@@ -77,7 +70,7 @@ Paradigma temporal do trial: cruz de fixação + bipe em `t=0`; seta de indicaç
 - Formato **GDF** (também disponível em `.mat` no BNCI). Os rótulos da sessão de avaliação,
   retidos durante a competição, hoje são públicos.
 
-Amostra usada na EDA: 3 sujeitos (ver [`notebooks/01_eda_bci_iv_2a.ipynb`](notebooks/01_eda_bci_iv_2a.ipynb)).
+Amostra usada na EDA: 3 sujeitos (ver [`notebooks/01_dados_2a.ipynb`](notebooks/01_dados_2a.ipynb), parte 1).
 
 ## 5. Riscos de privacidade
 
@@ -170,7 +163,7 @@ qualquer amostra de EEG.
 A partir dos **metadados** do 2a (sem o sinal bruto) é construída uma camada analítica em
 **Parquet**, consultável com **DuckDB**. Ingestão em [`src/ingest.py`](src/ingest.py), **em
 lotes** (um sujeito por vez, um row group por sujeito na fato); consultas e benchmark em
-[`notebooks/02_camada_analitica_2a.ipynb`](notebooks/02_camada_analitica_2a.ipynb).
+[`notebooks/01_dados_2a.ipynb`](notebooks/01_dados_2a.ipynb).
 
 ```mermaid
 erDiagram
@@ -263,7 +256,7 @@ custam ~15 KiB frente a um único.
 
 ## 12. Qualidade dos dados
 
-Métricas em [`notebooks/03_qualidade_2a.ipynb`](notebooks/03_qualidade_2a.ipynb), em SQL/DuckDB
+Métricas em [`notebooks/01_dados_2a.ipynb`](notebooks/01_dados_2a.ipynb), em SQL/DuckDB
 sobre o Parquet.
 
 | métrica | resultado |
@@ -304,42 +297,108 @@ sobre o Parquet.
 **Testes declarativos (dbt Core):** [`dbt/models/schema.yml`](dbt/models/schema.yml) declara os
 Parquet da Prata como *sources* e testa chaves (`unique`, `not_null`), FKs (`relationships`) e
 domínios (`accepted_values`); [`dbt/models/gold_valid_trials.sql`](dbt/models/gold_valid_trials.sql)
-gera o Ouro. `dbt build` roda 23 testes e 1 modelo, todos com sucesso.
+gera o Ouro. Também testa as predições (`fact_prediction`, seção 13). `dbt build` roda 32 testes e 1 modelo, todos com sucesso.
 
 ## 13. Modelo e avaliação
 
-**Modelo.** EEGNet — Lawhern et al., J. Neural Eng. 15:056013, 2018
-([DOI 10.1088/1741-2552/aace8c](https://doi.org/10.1088/1741-2552/aace8c)), via
-[`braindecode.models.EEGNet`](https://braindecode.org/stable/generated/braindecode.models.EEGNet.html)
-1.8.1. Treino em [`src/train.py`](src/train.py); avaliação em
-[`notebooks/04_modelo_2a.ipynb`](notebooks/04_modelo_2a.ipynb).
+**Tarefa.** Detectar **se** a pessoa está imaginando um movimento (intenção × repouso), em sujeitos
+que o modelo não viu. Cada trial gera 2 amostras de 1,5 s (22 canais × 192 amostras a 128 Hz):
 
-**Treino.** Do zero, com `GroupKFold` por paciente (9 folds): em cada fold, 1 paciente no teste,
-1 na validação (escolha da época) e 7 no treino. Passa-banda 4–38 Hz, 128 Hz, janelas de 4 s e
-z-score ajustado só no treino; trials com artefato ficam fora do treino. Pesos em
-`models/eegnet_fold{0..8}.pt`; para reproduzir, `uv run python -m src.train`.
+- **repouso:** de 1,5 s antes do cue até o cue;
+- **intenção:** de 1,5 s a 3,0 s após o cue, depois que a seta some, para não detectar a resposta visual.
 
-**Predições.** [`data/predictions/predictions_eegnet.parquet`](data/predictions/predictions_eegnet.parquet),
-uma linha por trial, com `trial_id`, `subject_id`, `model_version`
-(`eegnet_braindecode-1.8.1_groupkfold9_seed42_v2`), `y_true`, `y_pred` e a saída de cada classe.
+São 50% de cada classe por construção.
 
-**Resultados** (trials sem artefato, n = 4.696; acaso = 25%; intervalo de confiança por bootstrap
-reamostrando pacientes):
+**Modelos.** Os dois são treinados em [`src/train.py`](src/train.py) e avaliados em
+[`notebooks/02_modelo_2a.ipynb`](notebooks/02_modelo_2a.ipynb):
 
-| métrica | valor | intervalo de confiança de 95% |
+- **EEGConformer:** Song et al., *EEG Conformer*, IEEE TNSRE 31, 2023
+  ([DOI 10.1109/TNSRE.2022.3230250](https://doi.org/10.1109/TNSRE.2022.3230250)), via
+  `braindecode.models.EEGConformer` 1.8.1. Convolução + Transformer sobre o sinal.
+- **MLP:** recebe 44 características, o log da potência nas bandas mu (8–12 Hz) e beta (13–30 Hz) por canal.
+
+**Divisão por paciente**, fixada antes de qualquer ajuste:
+
+| conjunto | sujeitos | uso |
 |---|---|---|
-| acurácia | 0,494 | 0,417–0,573 |
-| acurácia balanceada | 0,494 | 0,417–0,573 |
-| F1 (média entre as classes) | 0,496 | 0,408–0,572 |
-| coeficiente de correlação de Matthews | 0,327 | 0,231–0,435 |
+| treino | A01–A05 | pesos e z-score |
+| validação | A06–A07 | época, limiar e escolha do modelo |
+| teste | A08–A09 | avaliado uma única vez |
 
-**Erros.** O acerto varia de 33% (A05) a 67% (A01) entre pacientes. A confusão mais comum é
-pés × mão esquerda. Sessão e artefato não mudam o acerto de forma significativa (qui-quadrado
-com Holm: p = 0,84 e 0,19).
+**Pipeline de dados e treino:**
 
-**Limitações.** Só 9 pacientes (intervalo de confiança largo); domain shift entre pessoas; época
-escolhida em um único paciente de validação; a saída do modelo não é probabilidade calibrada;
-voluntários saudáveis em laboratório.
+```mermaid
+flowchart LR
+    A["5.184 trials"] --> B["quarentena de artefato<br/>(treino e validação)"]
+    B --> C["2 janelas por trial"]
+    C --> D["treino: 5.356 amostras"]
+    C --> E["validação: 1.964"]
+    C --> F["teste: 2.304 (com artefato)"]
+```
+
+**Etapas de treino:**
+
+1. **Pré-treino:** não usado. Não há modelo de EEG pré-treinado com procedência de dados conhecida,
+   então o transfer learning não se aplica.
+2. **Treino supervisionado:** do zero, com todos os pesos.
+3. **Ajuste por preferência:** não se aplica (é etapa de modelos de linguagem).
+4. **Inferência:** pesos fixos em `models/eegconformer.pt` e `models/mlp.pt`.
+
+**Pré-processamento e overfitting:**
+
+- z-score ajustado só no treino;
+- regularização L2 (`weight_decay`) e dropout de 0,5;
+- época escolhida pela área sob a curva ROC na validação (parada antecipada);
+- histórico por época em `data/predictions/training_history.parquet`.
+
+**Predições.** [`data/predictions/fact_prediction.parquet`](data/predictions/fact_prediction.parquet),
+com uma linha por modelo × amostra de validação e de teste. Tem `prediction_id`, `sample_id`,
+`trial_id` (→ `fact_trial`), `subject_id`, `split`, `model`, `model_version`, `y_true`, `p_intencao`,
+`threshold` e `y_pred`.
+
+**Limiar.** É o que maximiza a acurácia balanceada na validação: 0,14 no EEGConformer e 0,46 no MLP.
+
+**Resultados no teste** (A08–A09, 2.304 amostras; positivo = intenção; intervalo de confiança de 95%
+de Wilson):
+
+| modelo | limiar | sensibilidade | especificidade | precisão | acurácia |
+|---|---|---|---|---|---|
+| EEGConformer | 0,5 | 62,0% (59,1–64,7%) | 52,6% (49,7–55,5%) | 56,7% (53,9–59,4%) | 57,3% (55,3–59,3%) |
+| EEGConformer | validação (0,14) | 78,0% (75,6–80,3%) | 37,2% (34,5–40,1%) | 55,4% (53,0–57,8%) | 57,6% (55,6–59,6%) |
+| MLP | 0,5 | 61,0% (58,2–63,8%) | 46,7% (43,8–49,6%) | 53,4% (50,7–56,1%) | 53,9% (51,8–55,9%) |
+| MLP | validação (0,46) | 74,3% (71,7–76,7%) | 35,8% (33,0–38,6%) | 53,6% (51,2–56,1%) | 55,0% (53,0–57,1%) |
+
+Área sob a curva ROC no teste: 0,600 (EEGConformer) e 0,561 (MLP).
+
+**Testes estatísticos** (no teste; 5 comparações, p corrigido por Holm):
+
+| pergunta | teste | p | p corrigido por Holm |
+|---|---|---|---|
+| os dois modelos diferem nos acertos? | McNemar | 0,034 | 0,102 |
+| os dois modelos diferem na área sob a curva ROC? | DeLong | 0,004 | 0,018 |
+| o acerto muda com o membro imaginado? | qui-quadrado | 0,181 | 0,362 |
+| o acerto muda com o artefato? | qui-quadrado | 0,249 | 0,362 |
+| o acerto muda com o sujeito (A08 61%, A09 54%)? | qui-quadrado | < 0,001 | 0,002 |
+
+O sexo não é comparado, porque os 2 sujeitos de teste são do sexo masculino. O bootstrap por
+paciente também não é usado, porque o teste tem só 2 pacientes.
+
+**Erros:**
+
+- A área sob a curva ROC cai de 0,76 na validação para 0,60 no teste, e o acerto difere entre os dois
+  sujeitos de teste: domain shift entre pessoas.
+- O limiar da validação aumenta a sensibilidade e derruba a especificidade (27% em A09).
+- O EEGConformer separa melhor as classes que o MLP (DeLong). No limiar fixado, a diferença de
+  acertos não se mantém após a correção de Holm.
+
+**Limitações:**
+
+- Só 2 sujeitos de teste, e o intervalo de Wilson trata as amostras como independentes.
+- O repouso é a fixação, não um repouso livre.
+- Antecipação do cue e movimento ocular podem influenciar o resultado.
+- Domain shift entre pessoas.
+- A saída do modelo não é probabilidade calibrada.
+- Voluntários saudáveis em laboratório.
 
 ## 14. Estrutura
 
@@ -350,21 +409,13 @@ voluntários saudáveis em laboratório.
 ├── uv.lock                              # lock completo (uv sync --locked)
 ├── src/
 │   ├── ingest.py                        # ingestão -> tabelas do esquema estrela (Parquet)
-│   └── train.py                         # treino do EEGNet por sujeito + predições
+│   └── train.py                         # treino do EEGConformer e do MLP + predições
 ├── data/processed/                       # Prata: Parquet + CSV da camada analítica (versionados)
 ├── data/gold/                            # Ouro: agregado gerado pelo dbt (versionado)
-├── data/predictions/                     # predições do EEGNet (1 linha por trial, versionado)
-├── models/                               # pesos do EEGNet, um por fold (9, versionados)
+├── data/predictions/                     # predições e histórico de treino (versionados)
+├── models/                               # pesos do EEGConformer e do MLP (versionados)
 ├── dbt/                                  # projeto dbt: testes declarativos + modelo Ouro
-├── notebooks/
-│   ├── 01_eda_bci_iv_2a.ipynb           # EDA do 2a
-│   ├── 02_camada_analitica_2a.ipynb     # consultas DuckDB + benchmark
-│   ├── 03_qualidade_2a.ipynb            # métricas de qualidade (DuckDB)
-│   └── 04_modelo_2a.ipynb               # avaliação do EEGNet: métricas, IC e erros
-└── archive_aula01/                       # archive da Atividade 1 (Aula 01)
-    ├── README.md                        # nota sobre o material arquivado
-    └── aula01_eegmmidb/                  # entrega da Aula 01 (eegmmidb), preservada
-        ├── README.md                    # datasheet FAIR do eegmmidb
-        ├── notebooks/01_eda_eegmmidb.ipynb
-        └── data/raw/S0XX/S0XXR0Y.edf     # amostra EDF
+└── notebooks/
+    ├── 01_dados_2a.ipynb                # exploração, camada analítica (DuckDB) e qualidade
+    └── 02_modelo_2a.ipynb               # pipeline, overfitting, matriz de confusão, métricas e erros
 ```

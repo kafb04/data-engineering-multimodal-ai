@@ -129,8 +129,10 @@ flowchart LR
 
 ### Resultados
 
-**Overfitting:** a perda no treino cai sem parar, mas a da validação não acompanha. O modelo
-guardado é o da época com maior área sob a curva ROC na validação (linha tracejada).
+**Quando parar de treinar para evitar overfitting:** com mais épocas, o modelo começa a decorar o
+treino: o erro no treino (azul) continua caindo, mas o erro nas pessoas da validação (laranja) não
+cai junto; no MLP, chega a subir. Para não usar esse modelo decorado, guardamos a época em que ele ia
+melhor na validação (linha tracejada).
 
 <img src="figuras/curvas_treino.png" width="720" alt="Perda e área sob a curva ROC por época">
 

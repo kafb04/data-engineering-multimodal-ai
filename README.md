@@ -223,7 +223,7 @@ flowchart LR
     D --> VA["validação<br/>A06–A07"]
     D --> TE["teste<br/>A08–A09"]
     TR --> M["EEGConformer<br/>× MLP"]
-    VA -->|"escolhe época<br/>e limiar"| M
+    VA -->|"escolhe época<br/>e corte"| M
     M --> TE
 ```
 
@@ -259,13 +259,23 @@ Quanto mais longe da diagonal tracejada (chute), melhor. Área: **0,60** × 0,56
 | **EEGConformer** | 78,0% | 37,2% | **57,6%** |
 | MLP | 74,3% | 35,8% | 55,0% |
 
-### Resultado 3 — Os modelos respondem "intenção" quase sempre
+### Resultado 3 — O corte escolhido na validação faz o modelo pender para "intenção"
 
-<img src="figuras/matriz_confusao.png" width="520" alt="Matriz de confusão dos dois modelos no teste">
+O modelo dá uma nota de 0 a 1 para a chance de ser intenção. Acima do **corte**, ele responde
+"intenção"; abaixo, "repouso". Quanto menor o corte, mais "intenção" ele responde.
 
-Linha = verdade, coluna = resposta. À direita, com o limiar escolhido na validação, a maioria dos
-repousos vira "intenção" (723 de 1.152 no EEGConformer): **o limiar que servia para A06–A07 não
-serve para A08–A09.**
+<img src="figuras/matriz_confusao.png" width="520" alt="Matriz de confusão dos dois modelos no teste, com corte padrão e corte da validação">
+
+Cada quadrado separa as 1.152 tentativas de cada classe pelo que o modelo respondeu; **os acertos
+estão na diagonal, em negrito**.
+
+| EEGConformer no teste | intenções certas | repousos certos | acerto total |
+|---|---|---|---|
+| corte padrão (0,50) | 62% | 53% | 57,3% |
+| corte da validação (0,14) | **78%** | **37%** | 57,6% |
+
+- **Baixar o corte só troca um erro pelo outro:** acha mais intenções, mas confunde mais repousos, e o acerto total não muda.
+- **O corte da validação não serve no teste:** o 0,14 era o corte que mais acertava as duas classes em A06–A07; em A08–A09, faz o modelo dizer "intenção" em 70% das vezes. **Cada pessoa precisaria do seu corte.**
 
 ### Resposta
 

@@ -26,81 +26,184 @@ uv run jupyter notebook notebooks/                        # gráficos e análise
 
 ## Tarefa 1 — Conhecer os dados
 
+> **Pergunta:** este conjunto de dados serve para estudar a intenção de movimento? O que ele tem,
+> e com quais limites?
+
+### Ficha técnica
+
 | item | resumo |
 |---|---|
-| Fonte | Universidade de Tecnologia de Graz — [artigo](https://doi.org/10.3389/fnins.2012.00055) |
-| Gravação | 22 eletrodos na cabeça + 3 em volta dos olhos, 250 medições por segundo |
-| Movimentos imaginados | mão esquerda, mão direita, pés, língua |
-| Tamanho | 9 pessoas × 2 dias × 288 tentativas = **5.184 tentativas** |
-| Licença | proíbe redistribuir versões modificadas, por isso o sinal não fica no repositório |
+| Nome | BCI Competition IV 2a (`BNCI2014_001` no [MOABB](https://moabb.neurotechx.com/)) |
+| Fonte | Universidade de Tecnologia de Graz. Tangermann et al. (2012), [DOI 10.3389/fnins.2012.00055](https://doi.org/10.3389/fnins.2012.00055) |
+| Licença | **CC BY-ND 4.0**: pode usar e citar, mas não distribuir versão modificada. Por isso o sinal **não fica no repositório**: o MOABB baixa na primeira execução |
+| Tamanho | 9 pessoas × 2 dias × 288 tentativas = **5.184 tentativas**, 12 por classe em cada bloco (equilibradas) |
+| Privacidade | anônimo (A01–A09, só idade e sexo). Risco que sobra: o sinal cerebral funciona como impressão digital, mas reconhecer alguém exigiria outra gravação da mesma pessoa |
+| Aplicação | interface cérebro-computador para reabilitação e comunicação de pessoas com AVC, ELA ou lesão medular |
 
-**Dados abertos (nota de 1 a 5):** fácil de encontrar 5 · fácil de acessar 5 · fácil de combinar 4 ·
-fácil de reutilizar 3 → **média 4,25**.
+### Variáveis
 
-Sinal dos eletrodos C3, Cz e C4 (lado esquerdo, centro e lado direito da cabeça) em duas tentativas,
-e as 4 classes, equilibradas:
+| variável | formato | valores |
+|---|---|---|
+| Sinal cerebral (EEG) | 22 eletrodos, em volts | ±100 µV, **250 medições por segundo**, filtrado entre 0,5 e 100 Hz |
+| Movimento dos olhos (EOG) | 3 eletrodos | usado para identificar piscadas |
+| Classe | rótulo da tentativa | mão esquerda, mão direita, pés, língua |
+| Dia | 2 por pessoa | treino e avaliação, em dias diferentes |
+| Pessoa | identificador | A01 a A09 |
+
+### Uma tentativa
+
+```mermaid
+flowchart LR
+    A["0 s<br/>cruz na tela + bipe"] --> B["2 s<br/>seta indica o movimento"]
+    B --> C["2 a 6 s<br/>pessoa imagina o movimento"]
+    C --> D["pausa"]
+```
 
 <img src="figuras/sinal_c3_cz_c4.png" width="420" alt="Sinal dos eletrodos C3, Cz e C4 em duas tentativas">
 <img src="figuras/distribuicao_classes.png" width="400" alt="Quantidade de tentativas por classe">
 
-**Limitações:** só 9 pessoas saudáveis, 2 dias de gravação, piscadas atrapalham o sinal.
+À esquerda, o sinal dos eletrodos C3, Cz e C4 (lado esquerdo, centro e lado direito da cabeça, sobre
+a área do movimento). À direita, as 4 classes, equilibradas.
+
+### Uso em aprendizado de máquina
+
+| item | resumo |
+|---|---|
+| **Entrada** | 22 eletrodos × 4 s (1.000 medições), com foco em C3, Cz e C4 e nos ritmos mu (8–12 Hz) e beta (13–30 Hz) |
+| **Alvo** | qual movimento a pessoa imagina |
+| **Métodos conhecidos** | CSP + LDA, classificadores de Riemann e redes neurais (EEGNet, ShallowConvNet), todos no [braindecode](https://braindecode.org/) |
+
+### Dados abertos (FAIR)
+
+| critério | nota | por quê |
+|---|:---:|---|
+| Fácil de encontrar | 5 | DOI e identificador fixo no BNCI Horizon e no MOABB |
+| Fácil de acessar | 5 | download aberto, sem cadastro; uma linha de código no MOABB |
+| Fácil de combinar | 4 | formato aberto (GDF), mas fora do padrão BIDS e sem posição dos eletrodos |
+| Fácil de reutilizar | 3 | origem bem documentada, mas a licença proíbe versões modificadas e falta a mão dominante |
+| **Média** | **4,25** | |
+
+### Limitações
+
+- **Só 9 pessoas**, todas saudáveis: pouco para generalizar entre pessoas e nada sobre pacientes.
+- **Só 2 dias** por pessoa: pouco para estudar a estabilidade ao longo do tempo.
+- **Piscadas atrapalham** o sinal: 9,4% das tentativas vêm marcadas com ruído.
+- **Faltam dados da pessoa**: não há mão dominante, que muda a assimetria esperada entre os lados.
+- **Laboratório controlado**, com tentativas curtas: tende a superestimar o acerto no uso real.
 
 ---
 
 ## Tarefa 2 — Organizar em tabelas
 
-As informações de cada tentativa (sem o sinal) ficam em uma tabela central ligada a 4 tabelas de descrição.
+> **Objetivo:** guardar as informações de cada tentativa (sem o sinal) em tabelas fáceis de consultar.
+
+### Esquema estrela
+
+Uma tabela central (**fato**) com uma linha por tentativa, ligada a 4 tabelas de descrição
+(**dimensões**). Gerado por [`src/ingest.py`](src/ingest.py), uma pessoa por vez.
 
 ```mermaid
 erDiagram
-    pessoa    ||--o{ tentativa : ""
-    dia       ||--o{ tentativa : ""
-    bloco     ||--o{ tentativa : ""
-    movimento ||--o{ tentativa : ""
+    dim_subject ||--o{ fact_trial : "pessoa"
+    dim_session ||--o{ fact_trial : "dia"
+    dim_run     ||--o{ fact_trial : "bloco"
+    dim_class   ||--o{ fact_trial : "movimento"
 
-    tentativa {
-        texto   pessoa
-        texto   dia
-        texto   bloco
-        numero  movimento
-        decimal inicio_em_segundos
-        sim_nao tem_ruido
+    fact_trial {
+        texto   trial_id PK "ex. A04_0train_run_1_t33"
+        texto   subject_id FK
+        texto   session_id FK
+        texto   run_id FK
+        inteiro class_id FK
+        inteiro trial_in_run "posição no bloco (0 a 47)"
+        decimal onset_s "início da imaginação, em s"
+        decimal duration_s "4,0 s"
+        inteiro n_samples "1.000 medições"
+        sim_nao has_artifact "tem ruído"
     }
-    pessoa {
-        numero idade
-        texto  sexo
-        texto  mao_dominante "vazio"
+    dim_subject {
+        texto   subject_id PK "A01 a A09"
+        inteiro age
+        texto   sex
+        texto   handedness "NULL: não está na fonte"
     }
-    movimento {
-        texto nome
-        texto parte_do_corpo
+    dim_class {
+        inteiro class_id PK
+        texto   class_name
+        texto   body_part
+        texto   paradigm
     }
-    dia {
-        texto papel "treino ou avaliação"
+    dim_session {
+        texto session_id PK
+        texto session_role "treino ou avaliação"
     }
-    bloco {
-        numero numero_do_bloco
+    dim_run {
+        texto   run_id PK
+        inteiro run_number
     }
 ```
 
-O formato Parquet ficou **6 vezes menor** que a planilha comum e as consultas, **20 vezes mais rápidas**.
+**Grão:** 1 linha da fato = 1 tentativa (5.184 linhas).
+
+### Decisões
+
+| decisão | por quê |
+|---|---|
+| Estrela, com cada dimensão em uma tabela só | as dimensões são pequenas (2 a 9 linhas): um join por dimensão basta |
+| Chaves em texto (`A01`, `0train`, `run_0`) | a fonte é fechada e as chaves são estáveis e legíveis |
+| Dado ausente fica `NULL` | a mão dominante não está na fonte; nada de valor falso como `-1` |
+| Sinal fora do Parquet | só metadados e rótulos entram; o sinal fica no cache do MOABB (licença) |
+
+### Resultado: CSV × Parquet
+
+| mesma tabela fato | CSV | Parquet |
+|---|---|---|
+| Tamanho | 329,8 KiB | **54,1 KiB** (6× menor) |
+| Consulta no DuckDB | 1× | **20× mais rápida** |
 
 ---
 
 ## Tarefa 3 — Checar a qualidade
 
+> **Pergunta:** as tabelas estão corretas e completas? O que fazer com o que está errado?
+
+### Camadas
+
 ```mermaid
 flowchart LR
-    B["Bronze<br/>arquivos originais"] --> P["Prata<br/>tabelas conferidas"]
-    P --> O["Ouro<br/>tentativas sem ruído"]
-    P -.->|32 testes automáticos| OK(["todos passam"])
+    B["Bronze<br/>arquivos originais<br/>(cache do MOABB)"] --> P["Prata<br/>tabelas conferidas<br/>(data/processed)"]
+    P --> O["Ouro<br/>tentativas sem ruído<br/>(data/gold)"]
+    P -.->|"32 testes no dbt"| OK(["todos passam"])
 ```
+
+Os testes ([`dbt/models/schema.yml`](dbt/models/schema.yml)) conferem chaves únicas e não nulas,
+ligações entre tabelas e valores permitidos.
+
+### Resultado
 
 | verificação | resultado |
 |---|---|
-| Linhas repetidas | nenhuma |
-| Valores inválidos (18 regras) | nenhum |
-| Tentativas com ruído | 488 de 5.184 (**9,4%**), marcadas e deixadas de fora |
+| Linhas repetidas | **nenhuma** |
+| Campos preenchidos | **100%**, exceto mão dominante (0%) |
+| Valores inválidos (18 regras) | **nenhum** |
+| Tentativas com ruído | 488 de 5.184 (**9,4%**) |
+
+### Problemas encontrados e decisões
+
+| problema | decisão |
+|---|---|
+| Idade e sexo vinham vazios, mas estão na fonte | **corrigido**: a ingestão passou a ler os dois |
+| A marcação de ruído era descartada | **quarentena**: as 488 tentativas ficam na Prata marcadas (`has_artifact`) e o Ouro separa as válidas |
+| `onset_s` era descrito como início da tentativa | **corrigido**: é o início da imaginação (2 s depois) |
+| Mão dominante 0% preenchida | **mantido** como `NULL`: não está na fonte |
+| Coluna de data vazia e na tabela errada | **removida**: a fonte não traz a data |
+
+### Limitações
+
+- **A quarentena é desigual:** A06 perde 24,7% das tentativas; A01, só 3,8%. Sem elas, as classes
+  deixam de ser equilibradas.
+- **A marcação de ruído é dos autores** do conjunto e não foi refeita aqui.
+- **As regras olham os metadados, não o sinal:** um eletrodo ruidoso não aparece.
 
 ---
 

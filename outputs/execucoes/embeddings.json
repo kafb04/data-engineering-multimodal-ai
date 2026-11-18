@@ -1,0 +1,29 @@
+{
+  "etapa": "embeddings",
+  "status": "ok",
+  "inicio": "2026-11-16T16:21:06",
+  "duracao_s": 374.1,
+  "comando": "python -m src.embed",
+  "depende_de": [
+    "treino"
+  ],
+  "entradas": {
+    "src/embed.py": "sha256:8a99ff14f01bb861bf1e7b4c3f83a80f0128046cdae90f22e57a7f240f07c19c",
+    "data/processed/fact_trial.parquet": "sha256:1647f7ddf2a2d47004cf767906435f9a139cf91f9d84a5e934de01539ef2a5f0",
+    "data/predictions/fact_prediction.parquet": "sha256:fd5e2bef16128c53b6a8d7a6fb8e636bd4bc48a858cd9d8a2022b73fa23b33a9"
+  },
+  "entradas_externas": [
+    "MOABB BNCI2014_001 (baixado na 1ª execução para ~/mne_data)",
+    "Hugging Face braindecode/cbramod-pretrained (commit fixo em src/embed.py)"
+  ],
+  "saidas": {
+    "data/embeddings/embedding_vectors.parquet": "sha256:921fe3e284543632fe0e837b6d22f763d161df8635b695fe016fbacb620dac2c",
+    "data/embeddings/fact_embedding.parquet": "sha256:3043bbc84c558b63eb4cae9231385711f6dbe07dcd29e5ecfd12866691702b9e",
+    "data/embeddings/fact_neighbor.parquet": "sha256:bc6147d7dc8e6af6c62964fede1cfa0f3071ff1fc057b8606fe9f8df370e99e2",
+    "figuras/pares_vizinhos.png": "sha256:2617afe67b950333626f84aa6778039c222d1b889607af5961e82bf0a573fafb"
+  },
+  "semente": 42,
+  "commit": "186e1a5+alteracoes",
+  "python": "3.12.13",
+  "sistema": "Windows-11-10.0.26200-SP0"
+}

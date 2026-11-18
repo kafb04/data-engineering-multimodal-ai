@@ -1,0 +1,27 @@
+{
+  "etapa": "treino",
+  "status": "ok",
+  "inicio": "2026-11-16T15:39:13",
+  "duracao_s": 2483.5,
+  "comando": "python -m src.train",
+  "depende_de": [
+    "qualidade"
+  ],
+  "entradas": {
+    "src/train.py": "sha256:781b88fda36887f95fca47017fbb418e88c347e70df34d735f4bb57fbe1f0ff3",
+    "data/processed/fact_trial.parquet": "sha256:1647f7ddf2a2d47004cf767906435f9a139cf91f9d84a5e934de01539ef2a5f0"
+  },
+  "entradas_externas": [
+    "MOABB BNCI2014_001 (baixado na 1ª execução para ~/mne_data)"
+  ],
+  "saidas": {
+    "models/eegconformer.pt": "sha256:aadd0d93fbeaf150212442c42f2bcbdec9dec0447e3b4797d1c52d5805ab735a",
+    "models/mlp.pt": "sha256:51b5b73680d630ebca07fda88b987b3abd9fabd038dce40c7a6c1db94a1cfd17",
+    "data/predictions/fact_prediction.parquet": "sha256:fd5e2bef16128c53b6a8d7a6fb8e636bd4bc48a858cd9d8a2022b73fa23b33a9",
+    "data/predictions/training_history.parquet": "sha256:5449d80ed44f6c3ead7616fca289ea2cfe75e4756f110e23c9d6ee70046389ae"
+  },
+  "semente": 42,
+  "commit": "186e1a5+alteracoes",
+  "python": "3.12.13",
+  "sistema": "Windows-11-10.0.26200-SP0"
+}

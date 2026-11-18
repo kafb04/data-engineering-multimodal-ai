@@ -129,7 +129,7 @@ def plot_pairs(X, meta, channels, pairs):
         ax.set_xlabel("Hz")
     fig.suptitle("Amostra de teste (—) × 1º vizinho no treino (--): maior, mediana e menor similaridade")
     fig.tight_layout()
-    fig.savefig(OUT_DIR / "pares_vizinhos.png", dpi=120)
+    fig.savefig(ROOT / "figuras" / "pares_vizinhos.png", dpi=120)
 
 
 def main():

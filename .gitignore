@@ -18,3 +18,6 @@ dbt/.user.yml
 
 # vetores de embedding: só locais (licença CC BY-ND, ~180 MB); gerados por src.embed
 data/embeddings/embedding_vectors.parquet
+
+# log bruto de cada etapa (o registro versionado é o .json)
+outputs/execucoes/*.log

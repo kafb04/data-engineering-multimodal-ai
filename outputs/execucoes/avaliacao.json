@@ -1,0 +1,42 @@
+{
+  "etapa": "avaliacao",
+  "status": "ok",
+  "inicio": "2026-11-16T16:27:21",
+  "duracao_s": 61.5,
+  "comando": "python -m src.evaluate",
+  "depende_de": [
+    "testes_predicoes",
+    "embeddings"
+  ],
+  "entradas": {
+    "src/evaluate.py": "sha256:0013e20efd33623cc9547a72621d73d217d9fa7ced06615b76c0b48718c058d8",
+    "data/processed/dim_class.parquet": "sha256:888ffd984c809fad815d4de2cf136729a8f7cbe8fb9b7b103fdff47ee9760506",
+    "data/processed/dim_run.parquet": "sha256:1f0bdd08c5f9048302bd75f1486777769d7383fab3a6c634cebe82ff4caccdba",
+    "data/processed/dim_session.parquet": "sha256:4d1eb7bce3fc2f9fab84338a7c1d26868f0337275e024f10ac96795596f4c1ec",
+    "data/processed/dim_subject.parquet": "sha256:cf6033bf246e2b445e0f9c91f8ae63c172c9dd5dff10508dff4af8d44889fe60",
+    "data/processed/fact_trial.csv": "sha256:177e56e984f30b867f82f81bea1fa27a65b1381402e843939b7ac3995be280c6",
+    "data/processed/fact_trial.parquet": "sha256:1647f7ddf2a2d47004cf767906435f9a139cf91f9d84a5e934de01539ef2a5f0",
+    "data/gold/gold_valid_trials.parquet": "sha256:7c79e399b6efaf36b71d9d38bdd1f7d04ff797dac6af6c0a793f10d47f535a9f",
+    "data/predictions/fact_prediction.parquet": "sha256:fd5e2bef16128c53b6a8d7a6fb8e636bd4bc48a858cd9d8a2022b73fa23b33a9",
+    "data/predictions/training_history.parquet": "sha256:5449d80ed44f6c3ead7616fca289ea2cfe75e4756f110e23c9d6ee70046389ae",
+    "data/embeddings/embedding_vectors.parquet": "sha256:921fe3e284543632fe0e837b6d22f763d161df8635b695fe016fbacb620dac2c",
+    "data/embeddings/fact_embedding.parquet": "sha256:3043bbc84c558b63eb4cae9231385711f6dbe07dcd29e5ecfd12866691702b9e",
+    "data/embeddings/fact_neighbor.parquet": "sha256:bc6147d7dc8e6af6c62964fede1cfa0f3071ff1fc057b8606fe9f8df370e99e2"
+  },
+  "entradas_externas": [],
+  "saidas": {
+    "outputs/metricas.json": "sha256:290d381775633917b77da04128ff9ea0af360e7e323ce6db0929443c9d280bb2",
+    "figuras/curva_roc.png": "sha256:21e5efc6438c5c89a57af8d1f94ccb56ed8d16955f3b9dffd3c00136fc2033e4",
+    "figuras/curvas_treino.png": "sha256:4553c95145a2f7233da4b5e1d993692b762db4365fb531d575943f24eb29ae8c",
+    "figuras/distribuicao_classes.png": "sha256:39f4ed4127e4b00037e568eec808c2d38af262e9940c395af2bf1e45840fa447",
+    "figuras/matriz_confusao.png": "sha256:ad3b48e5ade20bc67a3254966b83a06b63b4dfa620ca5f6312f4c5ae3d14536b",
+    "figuras/pares_vizinhos.png": "sha256:2617afe67b950333626f84aa6778039c222d1b889607af5961e82bf0a573fafb",
+    "figuras/semelhanca_vizinhos.png": "sha256:8a2048319db28d086f3dba684b5af891287ea0d2f3adb06a4f92ecad728ca51e",
+    "figuras/sinal_c3_cz_c4.png": "sha256:ff14da69c2a7b6fb283d870335b6eef49946005d014e71209faacca2c66daef7",
+    "figuras/tsne.png": "sha256:efba46f395482a79bfcc71b04e7f7be54697e89a943419ab14cc906ac85eb40a"
+  },
+  "semente": null,
+  "commit": "186e1a5+alteracoes",
+  "python": "3.12.13",
+  "sistema": "Windows-11-10.0.26200-SP0"
+}

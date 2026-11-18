@@ -12,6 +12,7 @@ Uso: `python -m src.train`.
 from __future__ import annotations
 
 import copy
+import random
 import time
 from pathlib import Path
 
@@ -148,6 +149,8 @@ def choose_threshold(y_true, p):
 
 
 def main():
+    random.seed(SEED)
+    np.random.seed(SEED)
     torch.set_num_threads(8)
     signal, y, meta = load_samples()
     inputs = {"eegconformer": signal, "mlp": band_power(signal)}

@@ -3,24 +3,35 @@
 Sinal cerebral (eletroencefalograma) de 9 pessoas imaginando movimentos. Objetivo: detectar, só
 pelo sinal, que a pessoa **quer** se mexer.
 
-```mermaid
-flowchart LR
-    T1["Tarefa 1<br/>conhecer os dados"] --> T2["Tarefa 2<br/>organizar em tabelas"]
-    T2 --> T3["Tarefa 3<br/>checar a qualidade"]
-    T3 --> T4["Tarefa 4<br/>redes neurais e avaliação"]
-    T4 --> T5["Tarefa 5<br/>embeddings"]
-```
+| etapa | o que faz | seção |
+|---|---|---|
+| Tarefa 1 | conhecer os dados | [ficha técnica](#tarefa-1--conhecer-os-dados) |
+| Tarefa 2 | organizar em tabelas | [esquema estrela](#tarefa-2--organizar-em-tabelas) |
+| Tarefa 3 | checar a qualidade | [testes](#tarefa-3--checar-a-qualidade) |
+| Tarefa 4 | redes neurais e avaliação | [modelos](#tarefa-4--redes-neurais-e-avaliação) |
+| Tarefa 5 | embeddings | [vizinhos](#tarefa-5--embeddings) |
+| Tarefa 6 | pipeline automático e registrado | [mapa do pipeline](#tarefa-6--mapa-do-pipeline) |
+| | o que não se pode concluir | [LIMITACOES.md](LIMITACOES.md) |
 
-## Como rodar
+## Como reproduzir
 
 ```powershell
-uv sync --locked                                          # instala as bibliotecas
-uv run python -m src.ingest                               # Tarefa 2
-uv run dbt build --project-dir dbt --profiles-dir dbt     # Tarefa 3
-uv run python -m src.train                                # Tarefa 4
-uv run python -m src.embed                                # Tarefa 5
-uv run jupyter notebook notebooks/                        # gráficos e análises
+git clone https://github.com/kafb04/data-engineering-multimodal-ai.git
+cd data-engineering-multimodal-ai
+uv sync --locked                    # instala o Python 3.12 e as bibliotecas nas versões travadas
+uv run python run_pipeline.py       # roda tudo, do download dos dados às figuras
 ```
+
+| requisito | detalhe |
+|---|---|
+| Sistema | Windows, Linux ou macOS. Só precisa do [uv](https://docs.astral.sh/uv/); sem Docker |
+| Hardware | só CPU (sem placa de vídeo) |
+| Internet | na primeira execução: ~750 MB de sinal (MOABB, em `~/mne_data`) e os pesos do CBraMod (Hugging Face) |
+| Tempo | cerca de 52 min em um notebook comum; 41 min são o treino |
+
+**Sem rodar nada**, os resultados já estão no repositório: modelos treinados (`models/`), predições
+e tabelas (`data/`), números ([`outputs/metricas.json`](outputs/metricas.json)), figuras
+(`figuras/`) e o registro da execução que os produziu (`outputs/execucoes/`).
 
 ---
 
@@ -252,7 +263,8 @@ O erro no treino (azul) cai sempre; o da validação (laranja) não acompanha e,
 
 <img src="figuras/curva_roc.png" width="400" alt="Curva ROC do EEGConformer e do perceptron multicamadas no teste">
 
-Quanto mais longe da diagonal tracejada (chute), melhor. Área: **0,60** × 0,56 (DeLong, p = 0,018).
+Quanto mais longe da diagonal tracejada (chute), melhor. Área: **0,60** × 0,56 (DeLong, p = 0,018 já
+corrigido por Holm).
 
 | no teste | intenções detectadas | repousos detectados | acurácia |
 |---|---|---|---|
@@ -280,7 +292,7 @@ estão na diagonal, em negrito**.
 ### Resposta
 
 **Pouco.** A área ROC cai de **0,76** na validação para **0,60** no teste, e o acerto muda entre as
-duas pessoas de teste (61% × 54%, p = 0,002), mas não com o movimento nem com o ruído.
+duas pessoas de teste (61% × 54%, p = 0,002 corrigido), mas não com o movimento nem com o ruído.
 **Cada cérebro é diferente** (domain shift): o que pesa é a pessoa.
 
 ---
@@ -313,7 +325,7 @@ flowchart LR
 Semelhança de cada trecho de teste com o vizinho mais parecido. Nenhum passa de 0,55; cópia seria
 perto de **0,99** (linha tracejada).
 
-<img src="data/embeddings/pares_vizinhos.png" width="700" alt="Trecho de teste ao lado do vizinho mais parecido no treino">
+<img src="figuras/pares_vizinhos.png" width="700" alt="Trecho de teste ao lado do vizinho mais parecido no treino">
 
 Inspeção dos pares mais, médio e menos parecidos (azul: teste; laranja: vizinho no treino). Mesmo o
 par mais parecido (1ª fileira) é de pessoas e classes diferentes: um repouso de A08 ao lado de uma
@@ -358,3 +370,112 @@ xychart-beta
 - **Sem cópias:** os resultados da Tarefa 4 não foram inflados.
 - **O modelo reconhece de quem é o sinal** (impressão digital cerebral): isso explica a queda da Tarefa 4.
 - **Não reconhece a intenção:** foi pré-treinado sem saber o que a pessoa fazia e usado congelado.
+
+---
+
+## Tarefa 6 — Mapa do pipeline
+
+> **Objetivo:** o projeto roda sozinho, do dado bruto às figuras, e registra o que fez.
+
+### DAG
+
+Cada caixa é uma etapa; a seta significa "depende de". Cilindros são fontes externas.
+
+```mermaid
+flowchart LR
+    MO[("MOABB<br/>BNCI2014_001")]
+    HF[("Hugging Face<br/>CBraMod")]
+    ING["ingestao<br/>src.ingest"]
+    QUA["qualidade<br/>dbt build · 23 testes"]
+    TRE["treino<br/>src.train"]
+    TES["testes_predicoes<br/>dbt test · 9 testes"]
+    EMB["embeddings<br/>src.embed"]
+    AVA["avaliacao<br/>src.evaluate"]
+    OUT(["outputs/metricas.json<br/>figuras/"])
+
+    MO --> ING & TRE & EMB
+    HF --> EMB
+    ING -->|"data/processed"| QUA
+    QUA -->|"tabelas conferidas"| TRE
+    TRE -->|"data/predictions"| TES & EMB
+    TES -->|"predições conferidas"| AVA
+    EMB -->|"data/embeddings"| AVA
+    AVA --> OUT
+```
+
+| etapa | comando | entradas | saídas | depende de |
+|---|---|---|---|---|
+| `ingestao` | `python -m src.ingest` | sinal (MOABB) | `data/processed/` (5 tabelas) | — |
+| `qualidade` | `dbt build --exclude source:predictions` | `data/processed/` | `data/gold/`; 23 testes | `ingestao` |
+| `treino` | `python -m src.train` | sinal, `fact_trial` | `models/*.pt`, `data/predictions/` | `qualidade` |
+| `testes_predicoes` | `dbt test --select source:predictions` | `data/predictions/`, `fact_trial` | 9 testes | `treino` |
+| `embeddings` | `python -m src.embed` | sinal, `fact_trial`, `fact_prediction`, pesos do CBraMod | `data/embeddings/`, `figuras/pares_vizinhos.png` | `treino` |
+| `avaliacao` | `python -m src.evaluate` | todas as tabelas | `outputs/metricas.json`, `figuras/` | `testes_predicoes`, `embeddings` |
+
+Os 32 testes do dbt rodam em dois momentos: os das tabelas de entrada **antes** de treinar (dado
+ruim não chega ao modelo) e os da tabela de predições **depois**, porque ela só existe após o treino.
+
+### Orquestração
+
+Um script só com a biblioteca padrão do Python ([`run_pipeline.py`](run_pipeline.py)) faz o papel
+do orquestrador: **coordena** (ordem e falhas) e **registra** (o que rodou, com quê e o que saiu).
+
+```powershell
+uv run python run_pipeline.py                     # tudo, na ordem do DAG
+uv run python run_pipeline.py embeddings avaliacao   # refaz só as etapas nomeadas
+```
+
+| função | como |
+|---|---|
+| Ordem | o DAG é declarado em um dicionário; a ordem sai da ordenação topológica (`graphlib`) |
+| Falha | a etapa fica `falhou`; as que dependem dela ficam `nao_rodou`; as outras seguem |
+| Reprocessar | basta nomear as etapas; o resto vale o que já está no disco |
+| Registro | um JSON por etapa em `outputs/execucoes/`, com `sha256` de cada entrada e saída |
+
+**Por que não Airflow ou Dagster:** são 6 etapas em lote, rodadas uma vez, em uma máquina. Agenda,
+retentativas e painel não seriam usados, e o Airflow exigiria Linux ou Docker.
+
+### Registro de uma execução completa
+
+Execução do zero em 16/11/2026 (Windows 11, Python 3.12.13, só CPU), com as pastas `data/`,
+`models/`, `figuras/` e `outputs/` apagadas antes. Fica em
+[`outputs/execucoes/`](outputs/execucoes/):
+
+| etapa | status | início | duração |
+|---|---|---|---|
+| `ingestao` | ok | 15:36:08 | 2 min 16 s |
+| `qualidade` | ok | 15:38:25 | 47 s |
+| `treino` | ok | 15:39:13 | 41 min 24 s |
+| `testes_predicoes` | ok | 16:20:37 | 29 s |
+| `embeddings` | ok | 16:21:06 | 6 min 14 s |
+| `avaliacao` | ok | 16:27:21 | 1 min 02 s |
+
+**Reproduziu byte a byte** as saídas da execução anterior (03/11/2026): tabelas, pesos dos dois
+modelos, predições, vizinhos e `metricas.json` têm o mesmo `sha256`.
+
+**Teste de falha:** com `fact_prediction.parquet` removido de propósito, `testes_predicoes` ficou
+`falhou`, `avaliacao` ficou `nao_rodou` (motivo: `depende de ['testes_predicoes']`) e o comando
+saiu com erro.
+
+Cada registro guarda também o comando, a semente, o commit do código, a versão do Python e o
+sistema. Consultam-se como qualquer tabela:
+
+```sql
+SELECT etapa, status, duracao_s, commit
+FROM read_json_auto('outputs/execucoes/*.json') ORDER BY inicio;
+```
+
+### Versões
+
+| item | versão |
+|---|---|
+| Dados | BCI Competition IV 2a, `BNCI2014_001` pelo `moabb==1.7.2` |
+| Bibliotecas | fixadas em [`pyproject.toml`](pyproject.toml) e travadas em [`uv.lock`](uv.lock); Python 3.12 |
+| Modelos treinados | EEGConformer e MLP do `braindecode==1.8.1`, semente 42; a versão vai em cada linha de `fact_prediction` (`model_version`) |
+| Modelo pré-treinado | `braindecode/cbramod-pretrained` no commit `584cdc4` do Hugging Face |
+
+### Limitações
+
+- **Sem modo de amostra:** não há execução rápida com poucas pessoas; a divisão por pessoa é fixa.
+- **Etapas em sequência:** `testes_predicoes` e `embeddings` poderiam rodar em paralelo, mas o ganho seria de segundos.
+- **Reprodução exata só no mesmo ambiente:** ver [LIMITACOES.md](LIMITACOES.md).

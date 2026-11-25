@@ -1,12 +1,12 @@
 {
   "etapa": "ingestao",
   "status": "ok",
-  "inicio": "2026-11-16T15:36:08",
-  "duracao_s": 136.2,
+  "inicio": "2026-11-25T15:56:18",
+  "duracao_s": 62.0,
   "comando": "python -m src.ingest",
   "depende_de": [],
   "entradas": {
-    "src/ingest.py": "sha256:e65637cbae3fb28e198d345e215b3c10c2f7aeb98ef6c88ef0d3d09903fe06e5"
+    "src/ingest.py": "sha256:7798b6d2ff6288919b36340c8f94c34dd8ba9d7359eec6091d4a9f97c5e554b2"
   },
   "entradas_externas": [
     "MOABB BNCI2014_001 (baixado na 1ª execução para ~/mne_data)"
@@ -20,7 +20,7 @@
     "data/processed/fact_trial.parquet": "sha256:1647f7ddf2a2d47004cf767906435f9a139cf91f9d84a5e934de01539ef2a5f0"
   },
   "semente": null,
-  "commit": "186e1a5+alteracoes",
+  "commit": "86442f3+alteracoes",
   "python": "3.12.13",
   "sistema": "Windows-11-10.0.26200-SP0"
 }

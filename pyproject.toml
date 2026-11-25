@@ -1,7 +1,7 @@
 [project]
 name = "data-engineering-multimodal-ai"
 version = "0.1.0"
-description = "BCI Competition IV 2a: ficha técnica, EDA e camada analítica (Parquet + DuckDB)"
+description = "Detecção da intenção de movimento no EEG (BCI Competition IV 2a): pipeline reprodutível de dados, modelos e embeddings"
 requires-python = "==3.12.*"
 dependencies = [
     "mne==1.12.1",

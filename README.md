@@ -8,7 +8,7 @@ pelo sinal, que a pessoa **quer** se mexer.
 | Tarefa 1 | conhecer os dados | [ficha técnica](#tarefa-1--conhecer-os-dados) |
 | Tarefa 2 | organizar em tabelas | [esquema estrela](#tarefa-2--organizar-em-tabelas) |
 | Tarefa 3 | checar a qualidade | [testes](#tarefa-3--checar-a-qualidade) |
-| Tarefa 4 | redes neurais e avaliação | [modelos](#tarefa-4--redes-neurais-e-avaliação) |
+| Tarefa 4 | modelos e avaliação | [modelos](#tarefa-4--modelos-e-avaliação) |
 | Tarefa 5 | embeddings | [vizinhos](#tarefa-5--embeddings) |
 | Tarefa 6 | pipeline automático e registrado | [mapa do pipeline](#tarefa-6--mapa-do-pipeline) |
 | | o que não se pode concluir | [LIMITACOES.md](LIMITACOES.md) |
@@ -27,7 +27,7 @@ uv run python run_pipeline.py       # roda tudo, do download dos dados às figur
 | Sistema | Windows, Linux ou macOS. Só precisa do [uv](https://docs.astral.sh/uv/); sem Docker |
 | Hardware | só CPU (sem placa de vídeo) |
 | Internet | na primeira execução: ~750 MB de sinal (MOABB, em `~/mne_data`) e os pesos do CBraMod (Hugging Face) |
-| Tempo | cerca de 52 min em um notebook comum; 41 min são o treino |
+| Tempo | cerca de 1 h em um computador comum (o treino leva de 47 a 54 min), mais o download na primeira vez |
 
 **Sem rodar nada**, os resultados já estão no repositório: modelos treinados (`models/`), predições
 e tabelas (`data/`), números ([`outputs/metricas.json`](outputs/metricas.json)), figuras
@@ -170,7 +170,7 @@ erDiagram
 | mesma tabela fato | CSV | Parquet |
 |---|---|---|
 | Tamanho | 329,8 KiB | **54,1 KiB** (6× menor) |
-| Consulta no DuckDB | 1× | **20× mais rápida** |
+| Tipos das colunas | perdidos (tudo vira texto) | guardados (inteiro, decimal, sim/não) |
 
 ---
 
@@ -184,19 +184,25 @@ erDiagram
 flowchart LR
     B["Bronze<br/>arquivos originais<br/>(cache do MOABB)"] --> P["Prata<br/>tabelas conferidas<br/>(data/processed)"]
     P --> O["Ouro<br/>tentativas sem ruído<br/>(data/gold)"]
-    P -.->|"32 testes no dbt"| OK(["todos passam"])
+    P -.->|"24 testes no dbt"| OK(["todos passam"])
 ```
 
-Os testes ([`dbt/models/schema.yml`](dbt/models/schema.yml)) conferem chaves únicas e não nulas,
-ligações entre tabelas e valores permitidos.
+Os testes rodam no [dbt](https://www.getdbt.com/) sobre o DuckDB, em dois arquivos:
+
+| arquivo | o que confere |
+|---|---|
+| [`dbt/models/schema.yml`](dbt/models/schema.yml) | chaves únicas e não nulas, ligações entre tabelas, valores permitidos (21 testes nas tabelas de entrada, 2 no Ouro e 15 nas predições da Tarefa 4) |
+| [`dbt/tests/regras_de_dominio.sql`](dbt/tests/regras_de_dominio.sql) | 11 regras do desenho do experimento: 48 tentativas por bloco e 12 por classe, 4 s e 1.000 medições por tentativa, 7,5 a 8,5 s entre tentativas, `trial_id` composto das chaves, idade plausível... |
+
+Se uma regra falhar, a etapa `qualidade` falha e o treino não roda (Tarefa 6).
 
 ### Resultado
 
 | verificação | resultado |
 |---|---|
-| Linhas repetidas | **nenhuma** |
+| Linhas repetidas | **nenhuma** (chaves únicas) |
 | Campos preenchidos | **100%**, exceto mão dominante (0%) |
-| Valores inválidos (18 regras) | **nenhum** |
+| Valores inválidos (11 regras) | **nenhum** |
 | Tentativas com ruído | 488 de 5.184 (**9,4%**) |
 
 ### Problemas encontrados e decisões
@@ -218,7 +224,7 @@ ligações entre tabelas e valores permitidos.
 
 ---
 
-## Tarefa 4 — Redes neurais e avaliação
+## Tarefa 4 — Modelos e avaliação
 
 > **Pergunta:** só pelo sinal, um modelo sabe se a pessoa está em **repouso** ou com **intenção** de
 > se mexer, mesmo em pessoas que ele **nunca viu**?
@@ -229,71 +235,80 @@ ligações entre tabelas e valores permitidos.
 flowchart LR
     S["tentativa"] --> R["repouso<br/>1,5 s antes da seta"]
     S --> I["intenção<br/>1,5 a 3 s depois da seta"]
-    R & I --> D{"divisão<br/>por pessoa"}
-    D --> TR["treino<br/>A01–A05"]
-    D --> VA["validação<br/>A06–A07"]
-    D --> TE["teste<br/>A08–A09"]
-    TR --> M["EEGConformer<br/>× MLP"]
-    VA -->|"escolhe época<br/>e corte"| M
+    R & I --> D{"deixa uma pessoa de fora<br/>9 rodadas"}
+    D --> TR["treino<br/>7 pessoas, sem ruído"]
+    D --> VA["validação<br/>a pessoa seguinte"]
+    D --> TE["teste<br/>1 pessoa, tudo"]
+    TR --> M["CSP + LDA<br/>× EEGNet"]
+    VA -->|"escolhe a época"| M
     M --> TE
 ```
 
-| | EEGConformer | Perceptron multicamadas (MLP) |
-|---|---|---|
-| **Entrada** | o sinal inteiro | só a força dos ritmos cerebrais |
-| **Arquitetura** | convolução + atenção | camadas totalmente ligadas |
+Em cada rodada, uma pessoa fica de fora para o teste, a seguinte na lista valida (A01 testa e A02
+valida; A09 testa e A01 valida) e as outras 7 treinam. Assim **as 9 pessoas são testadas** por
+modelos que nunca viram o seu sinal. Gerado por [`src/train.py`](src/train.py).
 
-Os dois são treinados do zero com os rótulos (treino supervisionado) e depois usados para prever
-(inferência). Comparar os dois mostra se ler o sinal completo ajuda.
+| | CSP + LDA | EEGNet |
+|---|---|---|
+| **Ideia** | 6 filtros espaciais que mais separam as classes pela potência do sinal (CSP) + regra linear (LDA) | rede convolucional compacta, feita para EEG |
+| **Entrada** | 22 eletrodos, filtro 4–38 Hz, 128 medições por segundo | o mesmo sinal, com z-score |
+| **Treino** | ajuste direto | 40 épocas; guarda a época de maior área ROC na validação |
+| **Papel** | referência clássica de interfaces cérebro-computador | rede pequena, treina em CPU (9 rodadas em menos de 1 h) |
 
 | cuidado | como |
 |---|---|
-| Não vazar o teste | **z-score** (média 0, desvio 1) calculado só com o treino |
-| Não decorar o treino | **dropout**, penalização dos pesos e **parada antecipada** |
-| Comparar com rigor | **McNemar** (acertos), **DeLong** (área ROC), **qui-quadrado** (grupos), com correção de **Holm** |
+| Não vazar o teste | z-score e CSP calculados só com as 7 pessoas de treino; a pessoa de teste não entra no treino nem na escolha da época |
+| Não decorar o treino | penalização dos pesos e escolha da época em **outra** pessoa (a de validação) |
+| Unidade de avaliação | **a pessoa**: cada métrica é calculada por pessoa de teste e resumida entre as 9 |
+| Comparar com rigor | **Wilcoxon** pareado entre as 9 pessoas, com correção de **Holm** para os 6 testes |
 
-### Resultado 1 — Treinar demais faz o modelo decorar
+### Resultado 1 — A validação estabiliza cedo
 
-<img src="figuras/curvas_treino.png" width="720" alt="Perda e área sob a curva ROC por época">
+<img src="figuras/curvas_treino.png" width="720" alt="Perda do EEGNet e área ROC na validação por época, nas 9 rodadas">
 
-O erro no treino (azul) cai sempre; o da validação (laranja) não acompanha e, no MLP, sobe.
-**Guardamos a época em que a validação ia melhor** (linha tracejada).
+O erro no treino (azul) cai sempre; o da validação (laranja) para de cair perto da época 15. A área
+ROC na validação (direita, uma linha cinza por rodada) também estabiliza, perto de 0,86. **A época
+guardada é a melhor de cada rodada na validação** (entre a 20ª e a 40ª).
 
-### Resultado 2 — O EEGConformer é melhor, mas pouco acima do chute
+### Resultado 2 — O EEGNet detecta a intenção em todas as pessoas
 
-<img src="figuras/curva_roc.png" width="400" alt="Curva ROC do EEGConformer e do perceptron multicamadas no teste">
+<img src="figuras/auc_por_pessoa.png" width="720" alt="Área ROC de cada modelo em cada pessoa de teste">
 
-Quanto mais longe da diagonal tracejada (chute), melhor. Área: **0,60** × 0,56 (DeLong, p = 0,018 já
-corrigido por Holm).
+| média entre as 9 pessoas | área ROC (mín.–máx.) | acurácia | intenções detectadas | repousos detectados |
+|---|---|---|---|---|
+| **EEGNet** | **0,86** (0,72–0,96) | **76,8%** | 84,2% | 69,4% |
+| CSP + LDA | 0,67 (0,55–0,86) | 60,1% | 60,7% | 59,4% |
+| Vizinhos do CBraMod ([Tarefa 5](#tarefa-5--embeddings)) | 0,54 (0,48–0,59) | 53,1% | 65,9% | 40,4% |
 
-| no teste | intenções detectadas | repousos detectados | acurácia |
-|---|---|---|---|
-| **EEGConformer** | 78,0% | 37,2% | **57,6%** |
-| MLP | 74,3% | 35,8% | 55,0% |
+- **Os três ficam acima do acaso** (área 0,50): EEGNet e CSP + LDA nas 9 pessoas, os vizinhos em 8
+  (Wilcoxon, p ≤ 0,016 corrigido por Holm).
+- **O EEGNet supera o CSP + LDA nas 9 pessoas** (p = 0,016 corrigido), e o CSP + LDA supera os
+  vizinhos nas 9.
+- **A validação prevê o teste:** área média de 0,87 na pessoa de validação e 0,86 na de teste.
 
-### Resultado 3 — O corte escolhido na validação faz o modelo pender para "intenção"
+### Resultado 3 — O EEGNet erra mais os repousos
 
-O modelo dá uma nota de 0 a 1 para a chance de ser intenção. Acima do **corte**, ele responde
-"intenção"; abaixo, "repouso". Quanto menor o corte, mais "intenção" ele responde.
+<img src="figuras/matriz_confusao.png" width="720" alt="Matriz de confusão dos três modelos nas 9 pessoas de teste">
 
-<img src="figuras/matriz_confusao.png" width="520" alt="Matriz de confusão dos dois modelos no teste, com corte padrão e corte da validação">
+Cada linha separa os trechos de uma classe pelo que o modelo respondeu (corte 0,5); os acertos
+estão na diagonal.
 
-Cada quadrado separa as 1.152 tentativas de cada classe pelo que o modelo respondeu; **os acertos
-estão na diagonal, em negrito**.
-
-| EEGConformer no teste | intenções certas | repousos certos | acerto total |
-|---|---|---|---|
-| corte padrão (0,50) | 62% | 53% | 57,3% |
-| corte da validação (0,14) | **78%** | **37%** | 57,6% |
-
-- **Baixar o corte só troca um erro pelo outro:** acha mais intenções, mas confunde mais repousos, e o acerto total não muda.
-- **O corte da validação não serve no teste:** o 0,14 era o corte que mais acertava as duas classes em A06–A07; em A08–A09, faz o modelo dizer "intenção" em 70% das vezes. **Cada pessoa precisaria do seu corte.**
+- **EEGNet:** 31% dos repousos viram "intenção", contra 16% das intenções que viram "repouso".
+- **CSP + LDA:** o corte 0,5 não vale para todas as pessoas. Em uma, o modelo responde "intenção"
+  em quase tudo (só 3% dos repousos certos); em outra, acha só 23% das intenções.
+- **Nem o movimento nem o ruído pesam:** o EEGNet detecta de 82% a 86% das intenções de cada
+  movimento imaginado e acerta 77,0% dos trechos sem ruído e 75,5% dos com ruído.
 
 ### Resposta
 
-**Pouco.** A área ROC cai de **0,76** na validação para **0,60** no teste, e o acerto muda entre as
-duas pessoas de teste (61% × 54%, p = 0,002 corrigido), mas não com o movimento nem com o ruído.
-**Cada cérebro é diferente** (domain shift): o que pesa é a pessoa.
+**Sim, com ressalvas.** O EEGNet separa repouso de intenção em pessoas que nunca viu (área 0,86 em
+média), e a pior pessoa ainda fica em 0,72. Mas a variação entre pessoas é grande (0,72 a 0,96), e o
+que o modelo aprendeu é "antes × depois da seta": parte disso pode ser resposta visual ou de
+atenção, não intenção motora (ver [LIMITACOES.md](LIMITACOES.md)).
+
+**Mudança desde as Aulas 04 e 05:** antes havia uma única divisão (treino A01–A05, teste A08–A09) e
+o EEGConformer chegava a 0,60. Nas mesmas duas pessoas, o EEGNet chega a 0,84 (A08) e 0,72 (A09).
+Mudaram o modelo, o pré-processamento e o número de pessoas no treino (7 em vez de 5).
 
 ---
 
@@ -316,59 +331,47 @@ flowchart LR
 
 - **Embedding:** lista de números que resume o trecho. Trechos parecidos têm embeddings próximos (**vizinhos**).
 - **Congelado:** os pesos não mudam, então mede só o que o modelo já sabia do pré-treino, feito sem estes dados.
-- **Busca exata:** cada trecho é comparado com todos os outros (10 mil trechos levam segundos).
+- **Duas buscas exatas por cosseno** ([`src/embed.py`](src/embed.py)): cada trecho contra **todos** os
+  outros (cópias e peso da pessoa) e cada trecho da pessoa de teste contra os trechos sem ruído das
+  **7 pessoas de treino da mesma rodada** da Tarefa 4 (votação).
 
-### Resultado 1 — Nenhuma cópia entre treino e teste
+### Resultado 1 — Nenhuma cópia
 
 <img src="figuras/semelhanca_vizinhos.png" width="520" alt="Histograma da semelhança com o vizinho mais parecido">
 
-Semelhança de cada trecho de teste com o vizinho mais parecido. Nenhum passa de 0,55; cópia seria
-perto de **0,99** (linha tracejada).
+Semelhança (cosseno) de cada trecho com o vizinho mais parecido de outra tentativa. O maior valor é
+**0,55**; cópia seria perto de **0,99** (linha tracejada). Nenhum par passa de 0,99 e nenhum sinal se
+repete (mesmo hash).
 
-<img src="figuras/pares_vizinhos.png" width="700" alt="Trecho de teste ao lado do vizinho mais parecido no treino">
+<img src="figuras/pares_vizinhos.png" width="700" alt="Espectro de um trecho ao lado do vizinho mais parecido em outra pessoa">
 
-Inspeção dos pares mais, médio e menos parecidos (azul: teste; laranja: vizinho no treino). Mesmo o
-par mais parecido (1ª fileira) é de pessoas e classes diferentes: um repouso de A08 ao lado de uma
-intenção de A02.
+Inspeção dos pares de maior, mediana e menor semelhança entre pessoas diferentes (espectro em C3, Cz
+e C4). Mesmo o par mais parecido (1ª fileira) junta pessoas e classes diferentes: um repouso de A08 e
+uma intenção de A02.
 
 ### Resultado 2 — O modelo agrupa por pessoa, não por intenção
 
 <img src="figuras/tsne.png" width="720" alt="Mapa t-SNE colorido por pessoa e por tipo de trecho">
 
-Embeddings projetados em 2 dimensões (t-SNE). À esquerda, cor = pessoa: A09 (amarelo) forma um grupo
-próprio. À direita, cor = classe: repouso e intenção se misturam.
+Embeddings projetados em 2 dimensões (t-SNE). À esquerda, cor = pessoa: A09 (azul-claro) forma um
+grupo próprio. À direita, cor = trecho: repouso e intenção se misturam.
 
 | o vizinho é... | acaso | obtido |
 |---|---|---|
-| da **mesma pessoa** | 11% (1 em 9) | **25,4%** |
+| da **mesma pessoa** | 11,1% | **25,4%** (de 12,5% em A07 a 47,6% em A09) |
 | da **mesma classe** | 50% | 52,3% |
 
-### Resultado 3 — Votar pelos vizinhos é pior que os modelos da Tarefa 4
+### Resultado 3 — Votar pelos vizinhos fica perto do acaso
 
-Cada trecho de teste recebe a classe da maioria dos seus 10 vizinhos no treino.
-
-```mermaid
----
-config:
-  xyChart:
-    width: 560
-    height: 260
-  themeVariables:
-    xyChart:
-      plotColorPalette: "#4C78A8, #E45756"
----
-xychart-beta
-    title "Área sob a curva ROC no teste (linha vermelha = chute)"
-    x-axis ["EEGConformer", "MLP", "Vizinhos"]
-    y-axis 0.4 --> 0.8
-    bar [0.600, 0.561, 0.535]
-    line [0.5, 0.5, 0.5]
-```
+Cada trecho de teste recebe a fração dos seus 10 vizinhos que são "intenção". Área ROC média de
+**0,54** (0,48 a 0,59), abaixo do CSP + LDA e do EEGNet em todas as pessoas
+([Resultado 2 da Tarefa 4](#resultado-2--o-eegnet-detecta-a-intenção-em-todas-as-pessoas)).
 
 ### Resposta
 
-- **Sem cópias:** os resultados da Tarefa 4 não foram inflados.
-- **O modelo reconhece de quem é o sinal** (impressão digital cerebral): isso explica a queda da Tarefa 4.
+- **Sem cópias:** os resultados da Tarefa 4 não foram inflados por trechos repetidos.
+- **O modelo reconhece de quem é o sinal** (impressão digital cerebral): um em cada quatro vizinhos é
+  da mesma pessoa. É o mesmo efeito que faz a área da Tarefa 4 variar tanto entre pessoas.
 - **Não reconhece a intenção:** foi pré-treinado sem saber o que a pessoa fazia e usado congelado.
 
 ---
@@ -386,9 +389,9 @@ flowchart LR
     MO[("MOABB<br/>BNCI2014_001")]
     HF[("Hugging Face<br/>CBraMod")]
     ING["ingestao<br/>src.ingest"]
-    QUA["qualidade<br/>dbt build · 23 testes"]
+    QUA["qualidade<br/>dbt build · 24 testes"]
     TRE["treino<br/>src.train"]
-    TES["testes_predicoes<br/>dbt test · 9 testes"]
+    TES["testes_predicoes<br/>dbt test · 15 testes"]
     EMB["embeddings<br/>src.embed"]
     AVA["avaliacao<br/>src.evaluate"]
     OUT(["outputs/metricas.json<br/>figuras/"])
@@ -396,8 +399,8 @@ flowchart LR
     MO --> ING & TRE & EMB
     HF --> EMB
     ING -->|"data/processed"| QUA
-    QUA -->|"tabelas conferidas"| TRE
-    TRE -->|"data/predictions"| TES & EMB
+    QUA -->|"tabelas conferidas"| TRE & EMB
+    TRE -->|"data/predictions"| TES
     TES -->|"predições conferidas"| AVA
     EMB -->|"data/embeddings"| AVA
     AVA --> OUT
@@ -406,13 +409,13 @@ flowchart LR
 | etapa | comando | entradas | saídas | depende de |
 |---|---|---|---|---|
 | `ingestao` | `python -m src.ingest` | sinal (MOABB) | `data/processed/` (5 tabelas) | — |
-| `qualidade` | `dbt build --exclude source:predictions` | `data/processed/` | `data/gold/`; 23 testes | `ingestao` |
-| `treino` | `python -m src.train` | sinal, `fact_trial` | `models/*.pt`, `data/predictions/` | `qualidade` |
-| `testes_predicoes` | `dbt test --select source:predictions` | `data/predictions/`, `fact_trial` | 9 testes | `treino` |
-| `embeddings` | `python -m src.embed` | sinal, `fact_trial`, `fact_prediction`, pesos do CBraMod | `data/embeddings/`, `figuras/pares_vizinhos.png` | `treino` |
-| `avaliacao` | `python -m src.evaluate` | todas as tabelas | `outputs/metricas.json`, `figuras/` | `testes_predicoes`, `embeddings` |
+| `qualidade` | `dbt build --exclude source:predictions` | `data/processed/` | `data/gold/`; 24 testes | `ingestao` |
+| `treino` | `python -m src.train` | sinal, `fact_trial` | `models/eegnet_*.pt`, `data/predictions/` | `qualidade` |
+| `testes_predicoes` | `dbt test --select source:predictions` | `data/predictions/`, `fact_trial` | 15 testes | `treino` |
+| `embeddings` | `python -m src.embed` | sinal, `fact_trial`, pesos do CBraMod | `data/embeddings/`, `figuras/pares_vizinhos.png` | `qualidade` |
+| `avaliacao` | `python -m src.evaluate` | tabelas das camadas Prata e Ouro, predições, vizinhos | `outputs/metricas.json`, 7 figuras | `testes_predicoes`, `embeddings` |
 
-Os 32 testes do dbt rodam em dois momentos: os das tabelas de entrada **antes** de treinar (dado
+Os 39 testes do dbt rodam em dois momentos: os das tabelas de entrada **antes** de treinar (dado
 ruim não chega ao modelo) e os da tabela de predições **depois**, porque ela só existe após o treino.
 
 ### Orquestração
@@ -421,41 +424,52 @@ Um script só com a biblioteca padrão do Python ([`run_pipeline.py`](run_pipeli
 do orquestrador: **coordena** (ordem e falhas) e **registra** (o que rodou, com quê e o que saiu).
 
 ```powershell
-uv run python run_pipeline.py                     # tudo, na ordem do DAG
+uv run python run_pipeline.py                        # tudo, na ordem do DAG
 uv run python run_pipeline.py embeddings avaliacao   # refaz só as etapas nomeadas
 ```
 
 | função | como |
 |---|---|
 | Ordem | o DAG é declarado em um dicionário; a ordem sai da ordenação topológica (`graphlib`) |
-| Falha | a etapa fica `falhou`; as que dependem dela ficam `nao_rodou`; as outras seguem |
+| Falha | a etapa fica `falhou` se sair com erro **ou** não gravar saída nova; as que dependem dela ficam `nao_rodou`; as outras seguem |
 | Reprocessar | basta nomear as etapas; o resto vale o que já está no disco |
 | Registro | um JSON por etapa em `outputs/execucoes/`, com `sha256` de cada entrada e saída |
 
 **Por que não Airflow ou Dagster:** são 6 etapas em lote, rodadas uma vez, em uma máquina. Agenda,
 retentativas e painel não seriam usados, e o Airflow exigiria Linux ou Docker.
 
+### Testes do código
+
+```powershell
+uv run python -m unittest -v
+```
+
+13 testes ([`tests/test_projeto.py`](tests/test_projeto.py)) do que não depende do sinal: a divisão
+(cada pessoa testada uma vez, sem sobreposição), a correção de Holm, a montagem da tabela fato e a
+marcação de ruído, e o orquestrador (falha bloqueia só as dependentes, saída ausente ou antiga conta
+como falha, DAG válido). Rodam em 2 s.
+
 ### Registro de uma execução completa
 
-Execução do zero em 16/11/2026 (Windows 11, Python 3.12.13, só CPU), com as pastas `data/`,
-`models/`, `figuras/` e `outputs/` apagadas antes. Fica em
-[`outputs/execucoes/`](outputs/execucoes/):
+Execução do zero em 25/11/2026 (Windows 11, Python 3.12.13, só CPU), com as pastas `data/`,
+`models/`, `figuras/` e `outputs/` apagadas antes (o sinal e os pesos do CBraMod já estavam no
+cache). Fica em [`outputs/execucoes/`](outputs/execucoes/):
 
 | etapa | status | início | duração |
 |---|---|---|---|
-| `ingestao` | ok | 15:36:08 | 2 min 16 s |
-| `qualidade` | ok | 15:38:25 | 47 s |
-| `treino` | ok | 15:39:13 | 41 min 24 s |
-| `testes_predicoes` | ok | 16:20:37 | 29 s |
-| `embeddings` | ok | 16:21:06 | 6 min 14 s |
-| `avaliacao` | ok | 16:27:21 | 1 min 02 s |
+| `ingestao` | ok | 15:56:18 | 1 min 02 s |
+| `qualidade` | ok | 15:57:21 | 11 s |
+| `treino` | ok | 15:57:32 | 54 min 15 s |
+| `embeddings` | ok | 16:51:48 | 3 min 11 s |
+| `testes_predicoes` | ok | 16:54:59 | 25 s |
+| `avaliacao` | ok | 16:55:24 | 15 s |
 
-**Reproduziu byte a byte** as saídas da execução anterior (03/11/2026): tabelas, pesos dos dois
-modelos, predições, vizinhos e `metricas.json` têm o mesmo `sha256`.
+**Reproduziu a execução anterior do zero (no mesmo dia):** as 27 áreas ROC (3 modelos × 9 pessoas),
+as épocas escolhidas e as métricas dos embeddings são iguais.
 
-**Teste de falha:** com `fact_prediction.parquet` removido de propósito, `testes_predicoes` ficou
-`falhou`, `avaliacao` ficou `nao_rodou` (motivo: `depende de ['testes_predicoes']`) e o comando
-saiu com erro.
+**Teste de falha:** coberto pelos testes do código (`test_falha_bloqueia_so_as_dependentes`): com
+uma etapa saindo com erro, ela fica `falhou`, a que depende dela fica `nao_rodou` (motivo:
+`depende de ['b']`) e a independente roda.
 
 Cada registro guarda também o comando, a semente, o commit do código, a versão do Python e o
 sistema. Consultam-se como qualquer tabela:
@@ -471,11 +485,11 @@ FROM read_json_auto('outputs/execucoes/*.json') ORDER BY inicio;
 |---|---|
 | Dados | BCI Competition IV 2a, `BNCI2014_001` pelo `moabb==1.7.2` |
 | Bibliotecas | fixadas em [`pyproject.toml`](pyproject.toml) e travadas em [`uv.lock`](uv.lock); Python 3.12 |
-| Modelos treinados | EEGConformer e MLP do `braindecode==1.8.1`, semente 42; a versão vai em cada linha de `fact_prediction` (`model_version`) |
+| Modelos treinados | EEGNet do `braindecode==1.8.1` e CSP + LDA do `mne` e `scikit-learn`, semente 42; a versão vai em cada linha de `fact_prediction` (`model_version`) |
 | Modelo pré-treinado | `braindecode/cbramod-pretrained` no commit `584cdc4` do Hugging Face |
 
 ### Limitações
 
-- **Sem modo de amostra:** não há execução rápida com poucas pessoas; a divisão por pessoa é fixa.
-- **Etapas em sequência:** `testes_predicoes` e `embeddings` poderiam rodar em paralelo, mas o ganho seria de segundos.
+- **Sem modo de amostra:** não há execução rápida com poucas pessoas; o treino leva cerca de 50 min em CPU.
+- **Etapas em sequência:** `treino` e `embeddings` poderiam rodar em paralelo; o ganho seria de ~3 min.
 - **Reprodução exata só no mesmo ambiente:** ver [LIMITACOES.md](LIMITACOES.md).

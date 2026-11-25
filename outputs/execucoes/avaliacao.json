@@ -1,15 +1,17 @@
 {
   "etapa": "avaliacao",
   "status": "ok",
-  "inicio": "2026-11-16T16:27:21",
-  "duracao_s": 61.5,
+  "inicio": "2026-11-25T16:55:24",
+  "duracao_s": 15.1,
   "comando": "python -m src.evaluate",
   "depende_de": [
     "testes_predicoes",
     "embeddings"
   ],
   "entradas": {
-    "src/evaluate.py": "sha256:0013e20efd33623cc9547a72621d73d217d9fa7ced06615b76c0b48718c058d8",
+    "src/evaluate.py": "sha256:0ba3f493f8fa00444ccaeb99ad4e81abe696f5a9c11ffc353b060a6d41dc87fd",
+    "src/samples.py": "sha256:154509fa344c89e7b6503e02d033a6185cdda98916a163ebb7d43b84a0ad76eb",
+    "src/ingest.py": "sha256:7798b6d2ff6288919b36340c8f94c34dd8ba9d7359eec6091d4a9f97c5e554b2",
     "data/processed/dim_class.parquet": "sha256:888ffd984c809fad815d4de2cf136729a8f7cbe8fb9b7b103fdff47ee9760506",
     "data/processed/dim_run.parquet": "sha256:1f0bdd08c5f9048302bd75f1486777769d7383fab3a6c634cebe82ff4caccdba",
     "data/processed/dim_session.parquet": "sha256:4d1eb7bce3fc2f9fab84338a7c1d26868f0337275e024f10ac96795596f4c1ec",
@@ -17,26 +19,27 @@
     "data/processed/fact_trial.csv": "sha256:177e56e984f30b867f82f81bea1fa27a65b1381402e843939b7ac3995be280c6",
     "data/processed/fact_trial.parquet": "sha256:1647f7ddf2a2d47004cf767906435f9a139cf91f9d84a5e934de01539ef2a5f0",
     "data/gold/gold_valid_trials.parquet": "sha256:7c79e399b6efaf36b71d9d38bdd1f7d04ff797dac6af6c0a793f10d47f535a9f",
-    "data/predictions/fact_prediction.parquet": "sha256:fd5e2bef16128c53b6a8d7a6fb8e636bd4bc48a858cd9d8a2022b73fa23b33a9",
-    "data/predictions/training_history.parquet": "sha256:5449d80ed44f6c3ead7616fca289ea2cfe75e4756f110e23c9d6ee70046389ae",
-    "data/embeddings/embedding_vectors.parquet": "sha256:921fe3e284543632fe0e837b6d22f763d161df8635b695fe016fbacb620dac2c",
-    "data/embeddings/fact_embedding.parquet": "sha256:3043bbc84c558b63eb4cae9231385711f6dbe07dcd29e5ecfd12866691702b9e",
-    "data/embeddings/fact_neighbor.parquet": "sha256:bc6147d7dc8e6af6c62964fede1cfa0f3071ff1fc057b8606fe9f8df370e99e2"
+    "data/predictions/fact_prediction.parquet": "sha256:ff7c2bc5a6c9e693ce32284fca7b701c36efadc59605405edb55288b261c83d4",
+    "data/predictions/training_history.parquet": "sha256:a48d60c87449420972d7030ed3375f5dbc0c765d3e38bef237b2ccaa9e3afca8",
+    "data/embeddings/fact_embedding.parquet": "sha256:64b59140b635f2f417ac7f16c4a52d667fc1567910f24893309178774045c48c",
+    "data/embeddings/fact_neighbor.parquet": "sha256:ccf8b1e2287c64044ac1d140f466f227af026542058203b4ac745a1e420e2eaa"
   },
-  "entradas_externas": [],
+  "entradas_externas": [
+    "MOABB BNCI2014_001 (baixado na 1ª execução para ~/mne_data)"
+  ],
   "saidas": {
-    "outputs/metricas.json": "sha256:290d381775633917b77da04128ff9ea0af360e7e323ce6db0929443c9d280bb2",
-    "figuras/curva_roc.png": "sha256:21e5efc6438c5c89a57af8d1f94ccb56ed8d16955f3b9dffd3c00136fc2033e4",
-    "figuras/curvas_treino.png": "sha256:4553c95145a2f7233da4b5e1d993692b762db4365fb531d575943f24eb29ae8c",
-    "figuras/distribuicao_classes.png": "sha256:39f4ed4127e4b00037e568eec808c2d38af262e9940c395af2bf1e45840fa447",
-    "figuras/matriz_confusao.png": "sha256:ad3b48e5ade20bc67a3254966b83a06b63b4dfa620ca5f6312f4c5ae3d14536b",
-    "figuras/pares_vizinhos.png": "sha256:2617afe67b950333626f84aa6778039c222d1b889607af5961e82bf0a573fafb",
-    "figuras/semelhanca_vizinhos.png": "sha256:8a2048319db28d086f3dba684b5af891287ea0d2f3adb06a4f92ecad728ca51e",
-    "figuras/sinal_c3_cz_c4.png": "sha256:ff14da69c2a7b6fb283d870335b6eef49946005d014e71209faacca2c66daef7",
-    "figuras/tsne.png": "sha256:efba46f395482a79bfcc71b04e7f7be54697e89a943419ab14cc906ac85eb40a"
+    "outputs/metricas.json": "sha256:2e69edd6000155dad98dec1573c60ce299c0e1b2436c844483b7bac3d3a60a84",
+    "figuras/auc_por_pessoa.png": "sha256:c961cfbcb418e3a44e0b264fe21bfaee64946804241d0ac6373fa0c6f4995416",
+    "figuras/curvas_treino.png": "sha256:1f763e9ccf8aac3e1ef547ceaddf2278abb0727f51181433bb434885195e94cf",
+    "figuras/distribuicao_classes.png": "sha256:bf59d0b434c350870d4e40fa2000754611b5ae0f3bd322ac5e7de5db14d2a80e",
+    "figuras/matriz_confusao.png": "sha256:8d60bf07e8fc6b7920f0a605264bf4f1fa5ca39dd8dc14c6d7ab5209d74af21d",
+    "figuras/pares_vizinhos.png": "sha256:36a2ffd6ea8d12aaf3d21c2594a0685fc140cc02a122988c9fad41827d84c49d",
+    "figuras/semelhanca_vizinhos.png": "sha256:9c9b435b378c59ba82cc23cea33736ee862c05885724418b49cb2a1c036fcd16",
+    "figuras/sinal_c3_cz_c4.png": "sha256:64729ab0419502f407077fbafd25ff993a2e0aa61ef61cc213be146ededaf5ae",
+    "figuras/tsne.png": "sha256:6306fa86f9fe907bdc39a8bebd69a294600890ce0e33380fb77cfeb497fe5768"
   },
   "semente": null,
-  "commit": "186e1a5+alteracoes",
+  "commit": "86442f3+alteracoes",
   "python": "3.12.13",
   "sistema": "Windows-11-10.0.26200-SP0"
 }

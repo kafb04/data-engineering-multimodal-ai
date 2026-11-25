@@ -7,719 +7,401 @@
       "right_hand": 1296,
       "tongue": 1296
     },
-    "por_papel_de_sessao_e_classe": {
-      "test": {
-        "feet": 648,
-        "left_hand": 648,
-        "right_hand": 648,
-        "tongue": 648
-      },
-      "train": {
-        "feet": 648,
-        "left_hand": 648,
-        "right_hand": 648,
-        "tongue": 648
-      }
+    "tamanho_kib": {
+      "csv": 329.8467,
+      "parquet": 54.1006,
+      "razao": 6.0969
     },
-    "trials_por_run_e_classe": {
-      "min_por_classe_run": 12,
-      "max_por_classe_run": 12,
-      "n_grupos": 432
+    "campos_incompletos": {
+      "dim_subject.handedness": 0.0
     },
-    "intervalo_entre_trials": {
-      "test": {
-        "gap_medio_s": 8.0431,
-        "gap_min_s": 7.58,
-        "gap_max_s": 8.48,
-        "fim_ultimo_trial_s": 385.028
-      },
-      "train": {
-        "gap_medio_s": 8.0431,
-        "gap_min_s": 7.58,
-        "gap_max_s": 8.48,
-        "fim_ultimo_trial_s": 385.028
-      }
-    },
-    "tamanho": {
-      "csv_kib": 329.8467,
-      "parquet_kib": 54.1006,
-      "razao_csv_parquet": 6.0969
-    }
-  },
-  "qualidade": {
-    "duplicatas_por_chave": {
-      "fact_trial.trial_id": {
-        "linhas": 5184,
-        "duplicatas": 0
-      },
-      "fact_trial (sujeito, sessão, run, trial_in_run)": {
-        "linhas": 5184,
-        "duplicatas": 0
-      },
-      "fact_trial (sujeito, sessão, run, onset_s)": {
-        "linhas": 5184,
-        "duplicatas": 0
-      },
-      "dim_subject.subject_id": {
-        "linhas": 9,
-        "duplicatas": 0
-      },
-      "dim_class.class_id": {
-        "linhas": 4,
-        "duplicatas": 0
-      },
-      "dim_session.session_id": {
-        "linhas": 2,
-        "duplicatas": 0
-      },
-      "dim_run.run_id": {
-        "linhas": 6,
-        "duplicatas": 0
-      }
-    },
-    "completude_por_campo": {
-      "fact_trial": {
-        "trial_id": 1.0,
-        "subject_id": 1.0,
-        "session_id": 1.0,
-        "run_id": 1.0,
-        "class_id": 1.0,
-        "trial_in_run": 1.0,
-        "onset_s": 1.0,
-        "duration_s": 1.0,
-        "n_samples": 1.0,
-        "has_artifact": 1.0
-      },
-      "dim_subject": {
-        "subject_id": 1.0,
-        "age": 1.0,
-        "sex": 1.0,
-        "handedness": 0.0
-      },
-      "dim_class": {
-        "class_id": 1.0,
-        "class_name": 1.0,
-        "body_part": 1.0,
-        "paradigm": 1.0
-      },
-      "dim_session": {
-        "session_id": 1.0,
-        "session_role": 1.0
-      },
-      "dim_run": {
-        "run_id": 1.0,
-        "run_number": 1.0
-      }
-    },
-    "violacoes_por_regra": {
-      "class_id fora de 0–3": 0,
-      "trial_in_run fora de 0–47": 0,
-      "duration_s diferente de 4,0": 0,
-      "n_samples diferente de duration_s × 250": 0,
-      "onset_s negativo": 0,
-      "sentinela (-1 ou 999) em campo numérico": 0,
-      "subject_id fora do padrão A01–A09": 0,
-      "trial_id diferente da composição das chaves": 0,
-      "subject_id sem linha em dim_subject": 0,
-      "session_id sem linha em dim_session": 0,
-      "run_id sem linha em dim_run": 0,
-      "class_id sem linha em dim_class": 0,
-      "run com nº de trials diferente de 48": 0,
-      "run × classe com nº de trials diferente de 12": 0,
-      "onset_s fora de ordem dentro do run": 0,
-      "intervalo entre trials fora de 7,5–8,5 s": 0,
-      "dim_subject.age fora de 10–100": 0,
-      "dim_subject.sex fora de {M, F}": 0
-    },
-    "n_regras": 18,
-    "artefatos": {
-      "total": {
-        "n_artefato": 488,
-        "n_trials": 5184,
-        "fracao_artefato": 0.0941
-      },
-      "por_sujeito": {
-        "A01": {
-          "n_artefato": 22,
-          "n_trials": 576,
-          "fracao_artefato": 0.0382
-        },
-        "A02": {
-          "n_artefato": 23,
-          "n_trials": 576,
-          "fracao_artefato": 0.0399
-        },
-        "A03": {
-          "n_artefato": 33,
-          "n_trials": 576,
-          "fracao_artefato": 0.0573
-        },
-        "A04": {
-          "n_artefato": 86,
-          "n_trials": 576,
-          "fracao_artefato": 0.1493
-        },
-        "A05": {
-          "n_artefato": 38,
-          "n_trials": 576,
-          "fracao_artefato": 0.066
-        },
-        "A06": {
-          "n_artefato": 142,
-          "n_trials": 576,
-          "fracao_artefato": 0.2465
-        },
-        "A07": {
-          "n_artefato": 28,
-          "n_trials": 576,
-          "fracao_artefato": 0.0486
-        },
-        "A08": {
-          "n_artefato": 41,
-          "n_trials": 576,
-          "fracao_artefato": 0.0712
-        },
-        "A09": {
-          "n_artefato": 75,
-          "n_trials": 576,
-          "fracao_artefato": 0.1302
-        }
-      },
-      "por_classe": {
-        "feet": {
-          "n_artefato": 122,
-          "min_restantes": 49,
-          "max_restantes": 72
-        },
-        "left_hand": {
-          "n_artefato": 131,
-          "min_restantes": 53,
-          "max_restantes": 71
-        },
-        "right_hand": {
-          "n_artefato": 115,
-          "min_restantes": 55,
-          "max_restantes": 71
-        },
-        "tongue": {
-          "n_artefato": 120,
-          "min_restantes": 53,
-          "max_restantes": 72
-        }
+    "tentativas_com_ruido": {
+      "total": 488,
+      "fracao": 0.0941,
+      "fracao_por_pessoa": {
+        "A01": 0.0382,
+        "A02": 0.0399,
+        "A03": 0.0573,
+        "A04": 0.1493,
+        "A05": 0.066,
+        "A06": 0.2465,
+        "A07": 0.0486,
+        "A08": 0.0712,
+        "A09": 0.1302
       }
     }
   },
   "divisao": {
-    "1. treino": {
-      "trials": 2880,
-      "com_artefato": 202,
-      "trials_usados": 2678,
-      "amostras": 5356
+    "A01": {
+      "validacao": "A02",
+      "treino": [
+        "A03",
+        "A04",
+        "A05",
+        "A06",
+        "A07",
+        "A08",
+        "A09"
+      ],
+      "amostras_treino": 7178,
+      "amostras_validacao": 1106,
+      "amostras_teste": 1152
     },
-    "2. validação": {
-      "trials": 1152,
-      "com_artefato": 170,
-      "trials_usados": 982,
-      "amostras": 1964
+    "A02": {
+      "validacao": "A03",
+      "treino": [
+        "A01",
+        "A04",
+        "A05",
+        "A06",
+        "A07",
+        "A08",
+        "A09"
+      ],
+      "amostras_treino": 7200,
+      "amostras_validacao": 1086,
+      "amostras_teste": 1152
     },
-    "3. teste": {
-      "trials": 1152,
-      "com_artefato": 116,
-      "trials_usados": 1152,
-      "amostras": 2304
+    "A03": {
+      "validacao": "A04",
+      "treino": [
+        "A01",
+        "A02",
+        "A05",
+        "A06",
+        "A07",
+        "A08",
+        "A09"
+      ],
+      "amostras_treino": 7326,
+      "amostras_validacao": 980,
+      "amostras_teste": 1152
+    },
+    "A04": {
+      "validacao": "A05",
+      "treino": [
+        "A01",
+        "A02",
+        "A03",
+        "A06",
+        "A07",
+        "A08",
+        "A09"
+      ],
+      "amostras_treino": 7336,
+      "amostras_validacao": 1076,
+      "amostras_teste": 1152
+    },
+    "A05": {
+      "validacao": "A06",
+      "treino": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A07",
+        "A08",
+        "A09"
+      ],
+      "amostras_treino": 7448,
+      "amostras_validacao": 868,
+      "amostras_teste": 1152
+    },
+    "A06": {
+      "validacao": "A07",
+      "treino": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A08",
+        "A09"
+      ],
+      "amostras_treino": 7428,
+      "amostras_validacao": 1096,
+      "amostras_teste": 1152
+    },
+    "A07": {
+      "validacao": "A08",
+      "treino": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A06",
+        "A09"
+      ],
+      "amostras_treino": 7226,
+      "amostras_validacao": 1070,
+      "amostras_teste": 1152
+    },
+    "A08": {
+      "validacao": "A09",
+      "treino": [
+        "A01",
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A06",
+        "A07"
+      ],
+      "amostras_treino": 7320,
+      "amostras_validacao": 1002,
+      "amostras_teste": 1152
+    },
+    "A09": {
+      "validacao": "A01",
+      "treino": [
+        "A02",
+        "A03",
+        "A04",
+        "A05",
+        "A06",
+        "A07",
+        "A08"
+      ],
+      "amostras_treino": 7282,
+      "amostras_validacao": 1108,
+      "amostras_teste": 1152
     }
   },
   "modelos": {
-    "eegconformer": {
-      "auc_validacao": 0.7615,
-      "auc_teste": 0.6001,
-      "limiar_validacao": 0.14,
-      "n_validacao": 1964,
-      "n_teste": 2304,
-      "cortes": {
-        "0,50": {
-          "limiar": 0.5,
-          "fracao_intencao": 0.5469,
-          "sensibilidade": {
-            "valor": 0.6198,
-            "ic_inf": 0.5914,
-            "ic_sup": 0.6474,
-            "k": 714,
-            "n": 1152
-          },
-          "especificidade": {
-            "valor": 0.526,
-            "ic_inf": 0.4972,
-            "ic_sup": 0.5547,
-            "k": 606,
-            "n": 1152
-          },
-          "precisão": {
-            "valor": 0.5667,
-            "ic_inf": 0.5391,
-            "ic_sup": 0.5938,
-            "k": 714,
-            "n": 1260
-          },
-          "acurácia": {
-            "valor": 0.5729,
-            "ic_inf": 0.5526,
-            "ic_sup": 0.593,
-            "k": 1320,
-            "n": 2304
-          }
+    "resumo_entre_pessoas": {
+      "csp_lda": {
+        "auc": {
+          "mean": 0.6749,
+          "std": 0.0976,
+          "min": 0.552,
+          "max": 0.855
         },
-        "validação": {
-          "limiar": 0.14,
-          "fracao_intencao": 0.704,
-          "sensibilidade": {
-            "valor": 0.7804,
-            "ic_inf": 0.7556,
-            "ic_sup": 0.8033,
-            "k": 899,
-            "n": 1152
-          },
-          "especificidade": {
-            "valor": 0.3724,
-            "ic_inf": 0.3449,
-            "ic_sup": 0.4007,
-            "k": 429,
-            "n": 1152
-          },
-          "precisão": {
-            "valor": 0.5543,
-            "ic_inf": 0.53,
-            "ic_sup": 0.5783,
-            "k": 899,
-            "n": 1622
-          },
-          "acurácia": {
-            "valor": 0.5764,
-            "ic_inf": 0.5561,
-            "ic_sup": 0.5964,
-            "k": 1328,
-            "n": 2304
-          }
+        "acuracia": {
+          "mean": 0.6007,
+          "std": 0.0765,
+          "min": 0.5122,
+          "max": 0.7274
+        },
+        "sensibilidade": {
+          "mean": 0.6071,
+          "std": 0.2294,
+          "min": 0.2257,
+          "max": 0.9965
+        },
+        "especificidade": {
+          "mean": 0.5943,
+          "std": 0.29,
+          "min": 0.0278,
+          "max": 0.9497
         }
       },
-      "por_sujeito_de_teste": {
-        "A08": {
-          "auc": 0.6557,
-          "idade": 23,
-          "sexo": "M",
-          "acurácia": {
-            "valor": 0.6128,
-            "ic_inf": 0.5844,
-            "ic_sup": 0.6406,
-            "k": 706,
-            "n": 1152
-          },
-          "sensibilidade": {
-            "valor": 0.7483,
-            "ic_inf": 0.7113,
-            "ic_sup": 0.782,
-            "k": 431,
-            "n": 576
-          },
-          "especificidade": {
-            "valor": 0.4774,
-            "ic_inf": 0.4369,
-            "ic_sup": 0.5182,
-            "k": 275,
-            "n": 576
-          },
-          "fracao_intencao": 0.6354
+      "eegnet": {
+        "auc": {
+          "mean": 0.8563,
+          "std": 0.0775,
+          "min": 0.7195,
+          "max": 0.9583
         },
-        "A09": {
-          "auc": 0.5625,
-          "idade": 17,
-          "sexo": "M",
-          "acurácia": {
-            "valor": 0.5399,
-            "ic_inf": 0.5111,
-            "ic_sup": 0.5685,
-            "k": 622,
-            "n": 1152
-          },
-          "sensibilidade": {
-            "valor": 0.8125,
-            "ic_inf": 0.7786,
-            "ic_sup": 0.8423,
-            "k": 468,
-            "n": 576
-          },
-          "especificidade": {
-            "valor": 0.2674,
-            "ic_inf": 0.2328,
-            "ic_sup": 0.305,
-            "k": 154,
-            "n": 576
-          },
-          "fracao_intencao": 0.7726
-        }
-      }
-    },
-    "mlp": {
-      "auc_validacao": 0.5987,
-      "auc_teste": 0.5613,
-      "limiar_validacao": 0.461,
-      "n_validacao": 1964,
-      "n_teste": 2304,
-      "cortes": {
-        "0,50": {
-          "limiar": 0.5,
-          "fracao_intencao": 0.5716,
-          "sensibilidade": {
-            "valor": 0.6102,
-            "ic_inf": 0.5818,
-            "ic_sup": 0.638,
-            "k": 703,
-            "n": 1152
-          },
-          "especificidade": {
-            "valor": 0.467,
-            "ic_inf": 0.4384,
-            "ic_sup": 0.4959,
-            "k": 538,
-            "n": 1152
-          },
-          "precisão": {
-            "valor": 0.5338,
-            "ic_inf": 0.5068,
-            "ic_sup": 0.5606,
-            "k": 703,
-            "n": 1317
-          },
-          "acurácia": {
-            "valor": 0.5386,
-            "ic_inf": 0.5182,
-            "ic_sup": 0.5589,
-            "k": 1241,
-            "n": 2304
-          }
+        "acuracia": {
+          "mean": 0.7679,
+          "std": 0.0739,
+          "min": 0.658,
+          "max": 0.8802
         },
-        "validação": {
-          "limiar": 0.461,
-          "fracao_intencao": 0.6927,
-          "sensibilidade": {
-            "valor": 0.7431,
-            "ic_inf": 0.717,
-            "ic_sup": 0.7675,
-            "k": 856,
-            "n": 1152
-          },
-          "especificidade": {
-            "valor": 0.3576,
-            "ic_inf": 0.3305,
-            "ic_sup": 0.3857,
-            "k": 412,
-            "n": 1152
-          },
-          "precisão": {
-            "valor": 0.5363,
-            "ic_inf": 0.5118,
-            "ic_sup": 0.5607,
-            "k": 856,
-            "n": 1596
-          },
-          "acurácia": {
-            "valor": 0.5503,
-            "ic_inf": 0.53,
-            "ic_sup": 0.5706,
-            "k": 1268,
-            "n": 2304
-          }
+        "sensibilidade": {
+          "mean": 0.8418,
+          "std": 0.0849,
+          "min": 0.6927,
+          "max": 0.9792
+        },
+        "especificidade": {
+          "mean": 0.6941,
+          "std": 0.1492,
+          "min": 0.4392,
+          "max": 0.9028
         }
       },
-      "por_sujeito_de_teste": {
-        "A08": {
-          "auc": 0.5483,
-          "idade": 23,
-          "sexo": "M",
-          "acurácia": {
-            "valor": 0.5382,
-            "ic_inf": 0.5093,
-            "ic_sup": 0.5668,
-            "k": 620,
-            "n": 1152
-          },
-          "sensibilidade": {
-            "valor": 0.6875,
-            "ic_inf": 0.6485,
-            "ic_sup": 0.724,
-            "k": 396,
-            "n": 576
-          },
-          "especificidade": {
-            "valor": 0.3889,
-            "ic_inf": 0.3499,
-            "ic_sup": 0.4293,
-            "k": 224,
-            "n": 576
-          },
-          "fracao_intencao": 0.6493
+      "knn": {
+        "auc": {
+          "mean": 0.5436,
+          "std": 0.0366,
+          "min": 0.4848,
+          "max": 0.5941
         },
-        "A09": {
-          "auc": 0.5724,
-          "idade": 17,
-          "sexo": "M",
-          "acurácia": {
-            "valor": 0.5625,
-            "ic_inf": 0.5337,
-            "ic_sup": 0.5909,
-            "k": 648,
-            "n": 1152
-          },
-          "sensibilidade": {
-            "valor": 0.7986,
-            "ic_inf": 0.7639,
-            "ic_sup": 0.8293,
-            "k": 460,
-            "n": 576
-          },
-          "especificidade": {
-            "valor": 0.3264,
-            "ic_inf": 0.2894,
-            "ic_sup": 0.3657,
-            "k": 188,
-            "n": 576
-          },
-          "fracao_intencao": 0.7361
-        }
-      }
-    }
-  },
-  "comparacoes": {
-    "modelo_escolhido": "eegconformer",
-    "mcnemar": {
-      "so_eegconformer_acerta": 417,
-      "so_mlp_acerta": 357,
-      "teste": "McNemar",
-      "p": 0.0339,
-      "p_holm": 0.1016
-    },
-    "delong": {
-      "auc_eegconformer": 0.6001,
-      "auc_mlp": 0.5613,
-      "teste": "DeLong",
-      "p": 0.0044,
-      "p_holm": 0.0176
-    },
-    "class_name": {
-      "pergunta": "o membro imaginado",
-      "teste": "qui-quadrado",
-      "p": 0.181,
-      "p_holm": 0.362,
-      "grupos": {
-        "feet": {
-          "pacientes": 2,
-          "amostras": 288,
-          "acerto": 0.7465
+        "acuracia": {
+          "mean": 0.5314,
+          "std": 0.0259,
+          "min": 0.4905,
+          "max": 0.5729
         },
-        "left_hand": {
-          "pacientes": 2,
-          "amostras": 288,
-          "acerto": 0.7882
+        "sensibilidade": {
+          "mean": 0.6593,
+          "std": 0.0411,
+          "min": 0.5677,
+          "max": 0.7049
         },
-        "right_hand": {
-          "pacientes": 2,
-          "amostras": 288,
-          "acerto": 0.7674
-        },
-        "tongue": {
-          "pacientes": 2,
-          "amostras": 288,
-          "acerto": 0.8194
+        "especificidade": {
+          "mean": 0.4035,
+          "std": 0.0523,
+          "min": 0.3177,
+          "max": 0.4948
         }
       }
     },
-    "has_artifact": {
-      "pergunta": "o artefato",
-      "teste": "qui-quadrado",
-      "p": 0.2493,
-      "p_holm": 0.362,
-      "grupos": {
-        "False": {
-          "pacientes": 2,
-          "amostras": 2072,
-          "acerto": 0.5806
-        },
-        "True": {
-          "pacientes": 2,
-          "amostras": 232,
-          "acerto": 0.5388
-        }
+    "auc_por_pessoa": {
+      "A01": {
+        "csp_lda": 0.626,
+        "eegnet": 0.8457,
+        "knn": 0.5164
+      },
+      "A02": {
+        "csp_lda": 0.6849,
+        "eegnet": 0.785,
+        "knn": 0.5509
+      },
+      "A03": {
+        "csp_lda": 0.7852,
+        "eegnet": 0.9583,
+        "knn": 0.5822
+      },
+      "A04": {
+        "csp_lda": 0.6666,
+        "eegnet": 0.9524,
+        "knn": 0.5799
+      },
+      "A05": {
+        "csp_lda": 0.552,
+        "eegnet": 0.8829,
+        "knn": 0.4848
+      },
+      "A06": {
+        "csp_lda": 0.7098,
+        "eegnet": 0.8207,
+        "knn": 0.536
+      },
+      "A07": {
+        "csp_lda": 0.855,
+        "eegnet": 0.9034,
+        "knn": 0.5941
+      },
+      "A08": {
+        "csp_lda": 0.6157,
+        "eegnet": 0.8387,
+        "knn": 0.5369
+      },
+      "A09": {
+        "csp_lda": 0.5789,
+        "eegnet": 0.7195,
+        "knn": 0.5115
       }
     },
-    "subject_id": {
-      "pergunta": "o sujeito",
-      "teste": "qui-quadrado",
-      "p": 0.0005,
-      "p_holm": 0.0023,
-      "grupos": {
-        "A08": {
-          "pacientes": 1,
-          "amostras": 1152,
-          "acerto": 0.6128
-        },
-        "A09": {
-          "pacientes": 1,
-          "amostras": 1152,
-          "acerto": 0.5399
-        }
+    "pessoas_acima_do_acaso": {
+      "csp_lda": 9,
+      "eegnet": 9,
+      "knn": 8
+    },
+    "testes_wilcoxon": {
+      "csp_lda > acaso": {
+        "p": 0.002,
+        "p_holm": 0.0117
+      },
+      "eegnet > acaso": {
+        "p": 0.002,
+        "p_holm": 0.0117
+      },
+      "knn > acaso": {
+        "p": 0.0059,
+        "p_holm": 0.0156
+      },
+      "csp_lda × eegnet": {
+        "p": 0.0039,
+        "p_holm": 0.0156
+      },
+      "csp_lda × knn": {
+        "p": 0.0039,
+        "p_holm": 0.0156
+      },
+      "eegnet × knn": {
+        "p": 0.0039,
+        "p_holm": 0.0156
+      }
+    },
+    "eegnet_validacao_x_teste": {
+      "auc_validacao_media": 0.8739,
+      "auc_teste_media": 0.8563,
+      "epoca_escolhida": {
+        "A01": 39,
+        "A02": 31,
+        "A03": 40,
+        "A04": 20,
+        "A05": 38,
+        "A06": 33,
+        "A07": 32,
+        "A08": 38,
+        "A09": 38
+      }
+    },
+    "intencoes_detectadas_por_classe": {
+      "csp_lda": {
+        "feet": 0.5949,
+        "left_hand": 0.5918,
+        "right_hand": 0.6011,
+        "tongue": 0.6404
+      },
+      "eegnet": {
+        "feet": 0.8179,
+        "left_hand": 0.8573,
+        "right_hand": 0.8472,
+        "tongue": 0.8449
+      },
+      "knn": {
+        "feet": 0.6497,
+        "left_hand": 0.6867,
+        "right_hand": 0.6528,
+        "tongue": 0.6481
+      }
+    },
+    "acuracia_por_ruido": {
+      "csp_lda": {
+        "sem_ruido": 0.6024,
+        "com_ruido": 0.5951
+      },
+      "eegnet": {
+        "sem_ruido": 0.7695,
+        "com_ruido": 0.755
+      },
+      "knn": {
+        "sem_ruido": 0.5288,
+        "com_ruido": 0.5602
       }
     }
   },
   "embeddings": {
     "modelo": "cbramod-pretrained@584cdc4_braindecode-1.8.1_encoder-concat_1s-200Hz",
-    "n_amostras": 10368,
-    "n_pares_vizinhos": 149760,
-    "mesma_pessoa": {
-      "A01": {
-        "mesmo_sujeito": 0.1453,
-        "acaso": 0.111
-      },
-      "A02": {
-        "mesmo_sujeito": 0.2736,
-        "acaso": 0.111
-      },
-      "A03": {
-        "mesmo_sujeito": 0.348,
-        "acaso": 0.111
-      },
-      "A04": {
-        "mesmo_sujeito": 0.1354,
-        "acaso": 0.111
-      },
-      "A05": {
-        "mesmo_sujeito": 0.2596,
-        "acaso": 0.111
-      },
-      "A06": {
-        "mesmo_sujeito": 0.1923,
-        "acaso": 0.111
-      },
-      "A07": {
-        "mesmo_sujeito": 0.127,
-        "acaso": 0.111
-      },
-      "A08": {
-        "mesmo_sujeito": 0.3208,
-        "acaso": 0.111
-      },
-      "A09": {
-        "mesmo_sujeito": 0.4814,
-        "acaso": 0.111
-      },
-      "todos": {
-        "mesmo_sujeito": 0.2537,
-        "acaso": 0.111
+    "vizinho_da_mesma_pessoa": {
+      "obtido": 0.254,
+      "acaso": 0.1109,
+      "por_pessoa": {
+        "A01": 0.1476,
+        "A02": 0.2775,
+        "A03": 0.3497,
+        "A04": 0.1371,
+        "A05": 0.2685,
+        "A06": 0.1885,
+        "A07": 0.1252,
+        "A08": 0.316,
+        "A09": 0.4764
       }
     },
-    "primeiro_vizinho_outra_janela_do_mesmo_trial": 0.0004,
-    "mesma_classe": 0.5234,
-    "primeiro_vizinho_do_teste_mesma_pessoa_em_todas": 0.4661,
-    "cosseno_primeiro_vizinho_teste": {
-      "todos": {
-        "mean": 0.2993,
-        "std": 0.0523,
-        "min": 0.1791,
-        "25%": 0.2609,
-        "50%": 0.2937,
-        "75%": 0.3312,
-        "max": 0.5487
-      },
-      "treino": {
-        "mean": 0.2682,
-        "std": 0.0554,
-        "min": 0.1586,
-        "25%": 0.2258,
-        "50%": 0.2592,
-        "75%": 0.3037,
-        "max": 0.5487
-      }
+    "vizinho_da_mesma_classe": {
+      "obtido": 0.5232,
+      "acaso": 0.5
     },
-    "maior_cosseno_teste_treino": 0.5487,
-    "pares_teste_treino_acima_de_0_99": 0,
-    "hashes_repetidos": 0,
-    "pares_mais_parecidos": [
-      {
-        "sample_id": "A08_0train_run_1_t04_repouso",
-        "neighbor_sample_id": "A02_1test_run_1_t28_intencao",
-        "cosine_sim": 0.5487
-      },
-      {
-        "sample_id": "A08_1test_run_5_t09_intencao",
-        "neighbor_sample_id": "A02_1test_run_4_t10_repouso",
-        "cosine_sim": 0.4658
-      },
-      {
-        "sample_id": "A08_1test_run_1_t05_intencao",
-        "neighbor_sample_id": "A02_1test_run_3_t27_intencao",
-        "cosine_sim": 0.4619
-      },
-      {
-        "sample_id": "A08_1test_run_3_t27_intencao",
-        "neighbor_sample_id": "A03_0train_run_3_t19_intencao",
-        "cosine_sim": 0.4544
-      },
-      {
-        "sample_id": "A08_1test_run_5_t29_intencao",
-        "neighbor_sample_id": "A03_0train_run_1_t33_intencao",
-        "cosine_sim": 0.4532
-      }
-    ],
-    "knn": {
-      "por_conjunto": {
-        "teste": {
-          "auc": 0.5347,
-          "sensibilidade": {
-            "valor": 0.4453,
-            "ic_inf": 0.4168,
-            "ic_sup": 0.4741,
-            "k": 513,
-            "n": 1152
-          },
-          "especificidade": {
-            "valor": 0.6163,
-            "ic_inf": 0.5879,
-            "ic_sup": 0.644,
-            "k": 710,
-            "n": 1152
-          }
-        },
-        "validacao": {
-          "auc": 0.5538,
-          "sensibilidade": {
-            "valor": 0.3889,
-            "ic_inf": 0.3612,
-            "ic_sup": 0.4174,
-            "k": 448,
-            "n": 1152
-          },
-          "especificidade": {
-            "valor": 0.6597,
-            "ic_inf": 0.6319,
-            "ic_sup": 0.6865,
-            "k": 760,
-            "n": 1152
-          }
-        }
-      },
-      "auc_teste_por_sujeito": {
-        "A08": 0.5396,
-        "A09": 0.5299
-      }
-    },
-    "auc_modelos_por_conjunto": {
-      "eegconformer": {
-        "teste": 0.6001,
-        "validacao": 0.7615
-      },
-      "mlp": {
-        "teste": 0.5613,
-        "validacao": 0.5987
-      }
-    }
+    "primeiro_vizinho_e_a_outra_metade_da_tentativa": 0.0004,
+    "maior_cosseno_entre_tentativas_diferentes": 0.548,
+    "pares_acima_de_0_99": 0,
+    "sinais_repetidos_por_hash": 0,
+    "maior_cosseno_com_outra_pessoa": 0.5485
   }
 }

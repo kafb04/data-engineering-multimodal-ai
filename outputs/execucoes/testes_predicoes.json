@@ -1,23 +1,23 @@
 {
   "etapa": "testes_predicoes",
   "status": "ok",
-  "inicio": "2026-11-16T16:20:37",
-  "duracao_s": 28.6,
-  "comando": "python -m dbt.cli.main test --project-dir dbt --profiles-dir dbt --select source:predictions",
+  "inicio": "2026-11-25T16:54:59",
+  "duracao_s": 24.6,
+  "comando": "python -m dbt.cli.main test --select source:predictions --project-dir dbt --profiles-dir dbt",
   "depende_de": [
     "treino"
   ],
   "entradas": {
     "dbt/models/gold_valid_trials.sql": "sha256:1bb6917f135a71462603a5b5ba3adabdf5516b67de6c072fa9d65627d59b6140",
-    "dbt/models/schema.yml": "sha256:889fe0769e568f681af3d3831c0074fddc00364ffb0ddb9dbbf990ccf844d8f2",
+    "dbt/models/schema.yml": "sha256:b232064b8549360edf624b8669bdfc37d86be9d565626bcce652596e22b1e8e2",
     "data/processed/fact_trial.parquet": "sha256:1647f7ddf2a2d47004cf767906435f9a139cf91f9d84a5e934de01539ef2a5f0",
-    "data/predictions/fact_prediction.parquet": "sha256:fd5e2bef16128c53b6a8d7a6fb8e636bd4bc48a858cd9d8a2022b73fa23b33a9",
-    "data/predictions/training_history.parquet": "sha256:5449d80ed44f6c3ead7616fca289ea2cfe75e4756f110e23c9d6ee70046389ae"
+    "data/predictions/fact_prediction.parquet": "sha256:ff7c2bc5a6c9e693ce32284fca7b701c36efadc59605405edb55288b261c83d4",
+    "data/predictions/training_history.parquet": "sha256:a48d60c87449420972d7030ed3375f5dbc0c765d3e38bef237b2ccaa9e3afca8"
   },
   "entradas_externas": [],
   "saidas": {},
   "semente": null,
-  "commit": "186e1a5+alteracoes",
+  "commit": "86442f3+alteracoes",
   "python": "3.12.13",
   "sistema": "Windows-11-10.0.26200-SP0"
 }

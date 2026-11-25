@@ -1,23 +1,13 @@
-venv/
 .venv/
+venv/
 __pycache__/
 *.pyc
-.ipynb_checkpoints/
-
-*.crdownload
-
-# cache do MOABB/MNE
+.DS_Store
 mne_data/
-
-# dbt
 dbt/target/
 dbt/logs/
 dbt/.user.yml
-
-.DS_Store
-
-# vetores de embedding: só locais (licença CC BY-ND, ~180 MB); gerados por src.embed
-data/embeddings/embedding_vectors.parquet
-
-# log bruto de cada etapa (o registro versionado é o .json)
 outputs/execucoes/*.log
+
+# vetores de embedding: só locais (licença CC BY-ND, ~180 MB)
+data/embeddings/embedding_vectors.parquet

@@ -1,15 +1,16 @@
 {
   "etapa": "qualidade",
   "status": "ok",
-  "inicio": "2026-11-16T15:38:25",
-  "duracao_s": 47.1,
-  "comando": "python -m dbt.cli.main build --project-dir dbt --profiles-dir dbt --exclude source:predictions",
+  "inicio": "2026-11-25T15:57:21",
+  "duracao_s": 11.4,
+  "comando": "python -m dbt.cli.main build --exclude source:predictions --project-dir dbt --profiles-dir dbt",
   "depende_de": [
     "ingestao"
   ],
   "entradas": {
     "dbt/models/gold_valid_trials.sql": "sha256:1bb6917f135a71462603a5b5ba3adabdf5516b67de6c072fa9d65627d59b6140",
-    "dbt/models/schema.yml": "sha256:889fe0769e568f681af3d3831c0074fddc00364ffb0ddb9dbbf990ccf844d8f2",
+    "dbt/models/schema.yml": "sha256:b232064b8549360edf624b8669bdfc37d86be9d565626bcce652596e22b1e8e2",
+    "dbt/tests/regras_de_dominio.sql": "sha256:f1570a1cd9fc63eacb776c475029349ad3510ed0a446a3723b15b2ff2c147799",
     "data/processed/dim_class.parquet": "sha256:888ffd984c809fad815d4de2cf136729a8f7cbe8fb9b7b103fdff47ee9760506",
     "data/processed/dim_run.parquet": "sha256:1f0bdd08c5f9048302bd75f1486777769d7383fab3a6c634cebe82ff4caccdba",
     "data/processed/dim_session.parquet": "sha256:4d1eb7bce3fc2f9fab84338a7c1d26868f0337275e024f10ac96795596f4c1ec",
@@ -22,7 +23,7 @@
     "data/gold/gold_valid_trials.parquet": "sha256:7c79e399b6efaf36b71d9d38bdd1f7d04ff797dac6af6c0a793f10d47f535a9f"
   },
   "semente": null,
-  "commit": "186e1a5+alteracoes",
+  "commit": "86442f3+alteracoes",
   "python": "3.12.13",
   "sistema": "Windows-11-10.0.26200-SP0"
 }

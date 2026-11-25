@@ -1,111 +1,74 @@
-"""Embeddings do BCI IV 2a com o modelo de fundação CBraMod (pré-treinado, congelado) e busca de vizinhos.
+"""Embeddings do modelo de fundação CBraMod (pré-treinado, congelado) e busca de vizinhos.
 
-Cada trial gera duas amostras de 1 s (o CBraMod usa patches de 1 s a 200 Hz): repouso (1 s antes
-do cue) e intenção (1,5 a 2,5 s após o cue). O embedding é a saída do encoder dos 22 canais
-concatenados (22 × 200 = 4.400 dimensões; a média sobre canais apagaria a lateralização C3/C4),
-centrado pela média do treino e normalizado. Duas buscas de 10 vizinhos por cosseno:
+Cada tentativa gera dois trechos de 1 s a 200 Hz, o formato do pré-treino: repouso (1 s antes da
+seta) e intenção (de 1,5 s a 2,5 s depois). O embedding junta a saída do encoder dos 22 canais
+(22 × 200 = 4.400 números), porque a média entre canais apagaria a diferença entre C3 e C4. Duas
+buscas de 10 vizinhos por cosseno:
 
-- `todos`: cada amostra contra todas as outras (vizinhos do mesmo sujeito, quase duplicatas);
-- `treino`: validação e teste contra só os sujeitos de treino (kNN intenção × repouso).
+- `todos`: cada trecho contra todos os outros, para achar cópias e medir o peso da pessoa;
+- `treino`: cada pessoa contra as tentativas sem ruído das 7 que treinam no mesmo fold de
+  `src.train`, para a votação.
 
-Os vetores de 4.400 dimensões vão para `embedding_vectors.parquet`, que fica só local (licença
-CC BY-ND e ~180 MB); no Git ficam IDs, hash do sinal, t-SNE e vizinhos.
+Os vetores ficam em `embedding_vectors.parquet`, só local (licença CC BY-ND e ~180 MB).
 
 Uso: `python -m src.embed`.
 """
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
-from braindecode.datasets import MOABBDataset
 from braindecode.models import CBraMod
-from braindecode.preprocessing import Preprocessor, create_windows_from_events, preprocess
 from scipy.signal import welch
 from sklearn.manifold import TSNE
 from sklearn.neighbors import NearestNeighbors
 
-from src.ingest import CLASS_MAP, DATASET_NAME, build_fact_table
-from src.train import N_TRIALS, SEED, TEST_SUBJECTS, TRAIN_SUBJECTS, VAL_SUBJECTS
+from src.samples import N_TRIALS, ROOT, SEED, folds, load_samples
 
-ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "data" / "embeddings"
 HF_REPO = "braindecode/cbramod-pretrained"
-HF_REVISION = "584cdc415913739a05d84bf0c1cb3db397764507"  # commit fixo dos pesos no Hugging Face
+HF_REVISION = "584cdc415913739a05d84bf0c1cb3db397764507"
 MODEL_VERSION = f"cbramod-pretrained@{HF_REVISION[:7]}_braindecode-1.8.1_encoder-concat_1s-200Hz"
-SFREQ = 200  # Hz, como no pré-treino
-PATCH = SFREQ  # 1 s
+SFREQ = 200
+BAND = (0.3, 75.0)
+REST, INTENTION = (-1.0, 0.0), (1.5, 2.5)
 K = 10
+PAIR_CHANNELS = ["C3", "Cz", "C4"]
 
 
-def load_samples():
-    """Janelas de 1 s de repouso e de intenção + metadados (mesmos sample_id de fact_prediction)."""
-    dataset = MOABBDataset(dataset_name=DATASET_NAME, subject_ids=list(range(1, 10)))
-    preprocess(dataset, [
-        Preprocessor("pick_types", eeg=True, eog=False, stim=False),
-        Preprocessor(lambda data: data * 1e4),  # V -> µV/100, escala do CBraMod
-        Preprocessor("filter", l_freq=0.3, h_freq=75.0),
-        Preprocessor("resample", sfreq=SFREQ),
-    ])
-    # de 1 s antes do cue até 2,5 s depois (o trial termina 4,0 s após o cue)
-    windows = create_windows_from_events(
-        dataset, trial_start_offset_samples=-PATCH, trial_stop_offset_samples=-int(1.5 * SFREQ),
-        preload=True, mapping=CLASS_MAP,
-    )
-    channels = windows.datasets[0].raw.ch_names
-    trials = build_fact_table(windows, set())[["trial_id", "subject_id"]]  # mesma ordem de windows[i]
-    fact = pd.read_parquet(ROOT / "data" / "processed" / "fact_trial.parquet",
-                           columns=["trial_id", "has_artifact"])
-    trials = trials.merge(fact, on="trial_id", how="left", validate="one_to_one")
-    assert len(trials) == N_TRIALS and trials["has_artifact"].notna().all()
-
-    X = np.stack([windows[i][0] for i in range(len(windows))]).astype(np.float32)
-    assert X.shape[2] == int(3.5 * SFREQ)
-    rest = X[:, :, :PATCH]                   # cue - 1 s até o cue
-    intention = X[:, :, int(2.5 * PATCH):]   # cue + 1,5 s até cue + 2,5 s (a seta some em 1,25 s)
-
-    meta = pd.concat([trials.assign(window="repouso"), trials.assign(window="intencao")],
-                     ignore_index=True)
-    meta.insert(0, "sample_id", meta["trial_id"] + "_" + meta["window"])
-    split = {**dict.fromkeys(TRAIN_SUBJECTS, "treino"), **dict.fromkeys(VAL_SUBJECTS, "validacao"),
-             **dict.fromkeys(TEST_SUBJECTS, "teste")}
-    meta["split"] = meta["subject_id"].map(split)
-    return np.concatenate([rest, intention]), meta, channels
-
-
-def embed(X, train_idx):
+def embed(X):
     model = CBraMod.from_pretrained(HF_REPO, revision=HF_REVISION, return_encoder_output=True)
     model.eval()
     with torch.no_grad():
-        # saída do encoder: (amostras, canais, 1 patch, 200) -> canais concatenados
-        Z = torch.cat([model(torch.from_numpy(X[i:i + 256])).flatten(1)
-                       for i in range(0, len(X), 256)]).numpy()
-    Z -= Z[train_idx].mean(axis=0)  # centro estimado só no treino
+        return torch.cat([model(torch.from_numpy(X[i:i + 256])).flatten(1)
+                          for i in range(0, len(X), 256)]).numpy()
+
+
+def unit(Z, center):
+    Z = Z - center
     return Z / np.linalg.norm(Z, axis=1, keepdims=True)
 
 
 def neighbors(Z, meta, query_idx, pool_idx, pool_name):
-    """K vizinhos de cosseno de cada amostra de query_idx dentro de pool_idx, sem ela mesma."""
+    """K vizinhos de cosseno de cada trecho de query_idx dentro de pool_idx, sem ele mesmo."""
+    nn = NearestNeighbors(n_neighbors=K, metric="cosine").fit(Z[pool_idx])
     same_pool = np.array_equal(query_idx, pool_idx)
-    nn = NearestNeighbors(n_neighbors=K + same_pool, metric="cosine").fit(Z[pool_idx])
-    dist, pos = nn.kneighbors(Z[query_idx])
-    if same_pool:
-        assert (pos[:, 0] == np.arange(len(query_idx))).all()  # o 1º é a própria amostra
-        dist, pos = dist[:, 1:], pos[:, 1:]
+    dist, pos = nn.kneighbors() if same_pool else nn.kneighbors(Z[query_idx])
     q = meta.iloc[np.repeat(query_idx, K)].reset_index(drop=True)
     n = meta.iloc[pool_idx[pos.ravel()]].reset_index(drop=True)
     return pd.DataFrame({
-        "sample_id": q["sample_id"], "subject_id": q["subject_id"], "split": q["split"],
-        "window": q["window"], "pool": pool_name, "rank": np.tile(np.arange(1, K + 1), len(query_idx)),
+        "sample_id": q["sample_id"], "subject_id": q["subject_id"], "window": q["window"],
+        "pool": pool_name, "rank": np.tile(np.arange(1, K + 1), len(query_idx)),
         "neighbor_sample_id": n["sample_id"], "neighbor_subject_id": n["subject_id"],
-        "neighbor_split": n["split"], "neighbor_window": n["window"],
-        "cosine_sim": (1 - dist.ravel()).astype(np.float32),
+        "neighbor_window": n["window"], "cosine_sim": (1 - dist.ravel()).astype(np.float32),
         "same_subject": q["subject_id"] == n["subject_id"],
         "same_trial": q["trial_id"] == n["trial_id"],
         "model_version": MODEL_VERSION,
@@ -113,58 +76,62 @@ def neighbors(Z, meta, query_idx, pool_idx, pool_name):
 
 
 def plot_pairs(X, meta, channels, pairs):
-    """PSD de C3/Cz/C4: amostra de teste ao lado do 1º vizinho no treino."""
-    picks = [channels.index(c) for c in ("C3", "Cz", "C4")]
-    index = pd.Series(np.arange(len(meta)), index=meta["sample_id"])
-    fig, axes = plt.subplots(len(pairs), 3, figsize=(11, 2.6 * len(pairs)), sharex=True)
-    for row, (_, pair) in zip(axes, pairs.iterrows()):
-        for sample_id, style in [(pair["sample_id"], "-"), (pair["neighbor_sample_id"], "--")]:
-            freqs, psd = welch(X[index[sample_id], picks], fs=SFREQ, nperseg=PATCH)
-            band = freqs <= 40
-            for ax, ch, p in zip(row, ("C3", "Cz", "C4"), psd):
-                ax.semilogy(freqs[band], p[band], style, label=sample_id)
-                ax.set_title(f"{ch} · cosseno {pair['cosine_sim']:.3f}", fontsize=9)
-        row[0].legend(fontsize=7)
+    """Espectro de C3, Cz e C4 de um trecho e do seu vizinho mais parecido em outra pessoa."""
+    position = pd.Series(np.arange(len(meta)), index=meta["sample_id"])
+    ids = pairs[["sample_id", "neighbor_sample_id"]].to_numpy()
+    picks = [channels.index(c) for c in PAIR_CHANNELS]
+    freqs, psd = welch(X[position[ids.ravel()].to_numpy()][:, picks], fs=SFREQ, nperseg=SFREQ)
+    band = freqs <= 40
+    psd = psd.reshape(len(pairs), 2, len(picks), -1)[..., band]
+    fig, axes = plt.subplots(len(pairs), len(picks), figsize=(11, 2.6 * len(pairs)), sharex=True)
+    for (row, col), ax in np.ndenumerate(axes):
+        ax.semilogy(freqs[band], psd[row, 0, col], "-", label=ids[row, 0])
+        ax.semilogy(freqs[band], psd[row, 1, col], "--", label=ids[row, 1])
+        similarity = f"{pairs['cosine_sim'].iat[row]:.3f}".replace(".", ",")
+        ax.set_title(f"{PAIR_CHANNELS[col]} · cosseno {similarity}", fontsize=9)
+    for ax in axes[:, 0]:
+        ax.legend(fontsize=7)
     for ax in axes[-1]:
         ax.set_xlabel("Hz")
-    fig.suptitle("Amostra de teste (—) × 1º vizinho no treino (--): maior, mediana e menor similaridade")
+    fig.suptitle("Trecho (—) × vizinho mais parecido em outra pessoa (--): "
+                 "maior, mediana e menor semelhança")
     fig.tight_layout()
     fig.savefig(ROOT / "figuras" / "pares_vizinhos.png", dpi=120)
+    plt.close(fig)
 
 
 def main():
-    torch.set_num_threads(8)
-    X, meta, channels = load_samples()
-    train_idx = np.flatnonzero(meta["split"] == "treino")
-    Z = embed(X, train_idx)
-    assert Z.shape == (2 * N_TRIALS, 22 * 200) and np.isfinite(Z).all() and meta["sample_id"].is_unique
-    pred = pd.read_parquet(ROOT / "data" / "predictions" / "fact_prediction.parquet", columns=["sample_id"])
-    assert set(pred["sample_id"]) <= set(meta.loc[meta["split"] != "treino", "sample_id"])
+    X, _, meta, channels = load_samples(SFREQ, BAND, 1e4, REST, INTENTION)
+    Z = embed(X)
+    assert Z.shape == (2 * N_TRIALS, 22 * SFREQ) and np.isfinite(Z).all()
 
+    subjects, clean = meta["subject_id"].to_numpy(), ~meta["has_artifact"].to_numpy()
     all_idx = np.arange(len(meta))
-    eval_idx = np.flatnonzero(meta["split"] != "treino")
-    nb = pd.concat([neighbors(Z, meta, all_idx, all_idx, "todos"),
-                    neighbors(Z, meta, eval_idx, train_idx, "treino")], ignore_index=True)
+    Z_all = unit(Z, Z.mean(axis=0))
+    tables = [neighbors(Z_all, meta, all_idx, all_idx, "todos")]
+    for test, _, train in folds():
+        train_idx = np.flatnonzero(np.isin(subjects, train) & clean)
+        tables.append(neighbors(unit(Z, Z[train_idx].mean(axis=0)), meta,
+                                np.flatnonzero(subjects == test), train_idx, "treino"))
+    nb = pd.concat(tables, ignore_index=True)
     assert (nb["sample_id"] != nb["neighbor_sample_id"]).all()
-    assert (nb.loc[nb["pool"] == "treino", "neighbor_split"] == "treino").all()
+    assert not nb.loc[nb["pool"] == "treino", "same_subject"].any()
 
-    xy = TSNE(n_components=2, init="pca", random_state=SEED).fit_transform(Z)
-    emb = meta.assign(model_version=MODEL_VERSION, tsne_x=xy[:, 0].astype(np.float32),
-                      tsne_y=xy[:, 1].astype(np.float32),
-                      # cópia exata do sinal = mesmo hash; o embedding pega as cópias alteradas
-                      signal_sha1=[hashlib.sha1(x.tobytes()).hexdigest() for x in X])
+    xy = TSNE(n_components=2, init="pca", random_state=SEED).fit_transform(Z_all)
+    emb = meta.drop(columns="y_true").assign(
+        model_version=MODEL_VERSION, tsne_x=xy[:, 0].astype(np.float32),
+        tsne_y=xy[:, 1].astype(np.float32),
+        signal_sha1=[hashlib.sha1(x.tobytes()).hexdigest() for x in X])
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     emb.to_parquet(OUT_DIR / "fact_embedding.parquet", index=False)
     nb.to_parquet(OUT_DIR / "fact_neighbor.parquet", index=False)
-    # uma linha por amostra, vetor como lista de tamanho fixo (FLOAT[4400] no DuckDB)
-    vectors = pa.table({
-        "sample_id": meta["sample_id"], "subject_id": meta["subject_id"], "split": meta["split"],
+    pq.write_table(pa.table({
+        "sample_id": meta["sample_id"], "subject_id": meta["subject_id"],
         "model_version": [MODEL_VERSION] * len(meta),
-        "embedding": pa.FixedSizeListArray.from_arrays(pa.array(Z.ravel()), Z.shape[1]),
-    })
-    pq.write_table(vectors, OUT_DIR / "embedding_vectors.parquet")
+        "embedding": pa.FixedSizeListArray.from_arrays(pa.array(Z_all.ravel()), Z_all.shape[1]),
+    }), OUT_DIR / "embedding_vectors.parquet")
 
-    top1 = nb[(nb["pool"] == "treino") & (nb["split"] == "teste") & (nb["rank"] == 1)]
+    top1 = nb[(nb["pool"] == "treino") & (nb["rank"] == 1)]
     top1 = top1.sort_values("cosine_sim", ignore_index=True)
     plot_pairs(X, meta, channels, top1.iloc[[-1, len(top1) // 2, 0]])
     print(f"{len(emb)} embeddings, {len(nb)} vizinhos -> data/embeddings/", flush=True)

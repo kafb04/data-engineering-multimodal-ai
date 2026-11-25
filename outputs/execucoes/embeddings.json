@@ -1,29 +1,30 @@
 {
   "etapa": "embeddings",
   "status": "ok",
-  "inicio": "2026-11-16T16:21:06",
-  "duracao_s": 374.1,
+  "inicio": "2026-11-25T16:51:48",
+  "duracao_s": 191.2,
   "comando": "python -m src.embed",
   "depende_de": [
-    "treino"
+    "qualidade"
   ],
   "entradas": {
-    "src/embed.py": "sha256:8a99ff14f01bb861bf1e7b4c3f83a80f0128046cdae90f22e57a7f240f07c19c",
-    "data/processed/fact_trial.parquet": "sha256:1647f7ddf2a2d47004cf767906435f9a139cf91f9d84a5e934de01539ef2a5f0",
-    "data/predictions/fact_prediction.parquet": "sha256:fd5e2bef16128c53b6a8d7a6fb8e636bd4bc48a858cd9d8a2022b73fa23b33a9"
+    "src/embed.py": "sha256:a4312a22cfad762e6ca31dc0a1f0a2c20845aff5c6dc19aafd0388714d268043",
+    "src/samples.py": "sha256:154509fa344c89e7b6503e02d033a6185cdda98916a163ebb7d43b84a0ad76eb",
+    "src/ingest.py": "sha256:7798b6d2ff6288919b36340c8f94c34dd8ba9d7359eec6091d4a9f97c5e554b2",
+    "data/processed/fact_trial.parquet": "sha256:1647f7ddf2a2d47004cf767906435f9a139cf91f9d84a5e934de01539ef2a5f0"
   },
   "entradas_externas": [
     "MOABB BNCI2014_001 (baixado na 1ª execução para ~/mne_data)",
     "Hugging Face braindecode/cbramod-pretrained (commit fixo em src/embed.py)"
   ],
   "saidas": {
-    "data/embeddings/embedding_vectors.parquet": "sha256:921fe3e284543632fe0e837b6d22f763d161df8635b695fe016fbacb620dac2c",
-    "data/embeddings/fact_embedding.parquet": "sha256:3043bbc84c558b63eb4cae9231385711f6dbe07dcd29e5ecfd12866691702b9e",
-    "data/embeddings/fact_neighbor.parquet": "sha256:bc6147d7dc8e6af6c62964fede1cfa0f3071ff1fc057b8606fe9f8df370e99e2",
-    "figuras/pares_vizinhos.png": "sha256:2617afe67b950333626f84aa6778039c222d1b889607af5961e82bf0a573fafb"
+    "data/embeddings/embedding_vectors.parquet": "sha256:b96b9c5b083470239546aab69430b954314ccd7abc58c2d37ea324dcee5a8dab",
+    "data/embeddings/fact_embedding.parquet": "sha256:64b59140b635f2f417ac7f16c4a52d667fc1567910f24893309178774045c48c",
+    "data/embeddings/fact_neighbor.parquet": "sha256:ccf8b1e2287c64044ac1d140f466f227af026542058203b4ac745a1e420e2eaa",
+    "figuras/pares_vizinhos.png": "sha256:36a2ffd6ea8d12aaf3d21c2594a0685fc140cc02a122988c9fad41827d84c49d"
   },
   "semente": 42,
-  "commit": "186e1a5+alteracoes",
+  "commit": "86442f3+alteracoes",
   "python": "3.12.13",
   "sistema": "Windows-11-10.0.26200-SP0"
 }

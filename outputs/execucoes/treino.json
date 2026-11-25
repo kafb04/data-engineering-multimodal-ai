@@ -1,27 +1,36 @@
 {
   "etapa": "treino",
   "status": "ok",
-  "inicio": "2026-11-16T15:39:13",
-  "duracao_s": 2483.5,
+  "inicio": "2026-11-25T15:57:32",
+  "duracao_s": 3255.1,
   "comando": "python -m src.train",
   "depende_de": [
     "qualidade"
   ],
   "entradas": {
-    "src/train.py": "sha256:781b88fda36887f95fca47017fbb418e88c347e70df34d735f4bb57fbe1f0ff3",
+    "src/train.py": "sha256:6fb1d4414f92daebc0841f463c68179f54eea6f51ee78cfffccd2d9df5b37d09",
+    "src/samples.py": "sha256:154509fa344c89e7b6503e02d033a6185cdda98916a163ebb7d43b84a0ad76eb",
+    "src/ingest.py": "sha256:7798b6d2ff6288919b36340c8f94c34dd8ba9d7359eec6091d4a9f97c5e554b2",
     "data/processed/fact_trial.parquet": "sha256:1647f7ddf2a2d47004cf767906435f9a139cf91f9d84a5e934de01539ef2a5f0"
   },
   "entradas_externas": [
     "MOABB BNCI2014_001 (baixado na 1ª execução para ~/mne_data)"
   ],
   "saidas": {
-    "models/eegconformer.pt": "sha256:aadd0d93fbeaf150212442c42f2bcbdec9dec0447e3b4797d1c52d5805ab735a",
-    "models/mlp.pt": "sha256:51b5b73680d630ebca07fda88b987b3abd9fabd038dce40c7a6c1db94a1cfd17",
-    "data/predictions/fact_prediction.parquet": "sha256:fd5e2bef16128c53b6a8d7a6fb8e636bd4bc48a858cd9d8a2022b73fa23b33a9",
-    "data/predictions/training_history.parquet": "sha256:5449d80ed44f6c3ead7616fca289ea2cfe75e4756f110e23c9d6ee70046389ae"
+    "models/eegnet_A01.pt": "sha256:6d52e3179720166b9698c9bd8fb2e04f35c69d7528e2cd66ec0a39cde3025562",
+    "models/eegnet_A02.pt": "sha256:7e1d9aac4bfaf12dbce082a6c7e0b12076fd4118c8e86d193f423ac1642adc31",
+    "models/eegnet_A03.pt": "sha256:f88a0a202e4c5f389c64656aad14797fa23a1b13b0d9488fc39a3669446898c8",
+    "models/eegnet_A04.pt": "sha256:b73f7e28d2b0cd81d0af9050622347be6b09102389e7122522854d02c48f6b7d",
+    "models/eegnet_A05.pt": "sha256:a6fd7d183862e87f342f99a4691c0ecebbfec362ea5538561edb7d771c2fc174",
+    "models/eegnet_A06.pt": "sha256:53eb66b00d97a35c7af45e64327b8f1cf6472c07a46e086d3f9e77efc7142e98",
+    "models/eegnet_A07.pt": "sha256:d979bcaca8779c77563a3e63b8b2d35de164fb5a07f54c8abd74d67a2d36bef5",
+    "models/eegnet_A08.pt": "sha256:b066a5caac0a638f092b26fde119dbdfece87d3158dee93f0de88bf633046e54",
+    "models/eegnet_A09.pt": "sha256:66867efa08998bc321d81d7249c2315d59f4e1f16bcf519ed11fd38e608d87fc",
+    "data/predictions/fact_prediction.parquet": "sha256:ff7c2bc5a6c9e693ce32284fca7b701c36efadc59605405edb55288b261c83d4",
+    "data/predictions/training_history.parquet": "sha256:a48d60c87449420972d7030ed3375f5dbc0c765d3e38bef237b2ccaa9e3afca8"
   },
   "semente": 42,
-  "commit": "186e1a5+alteracoes",
+  "commit": "86442f3+alteracoes",
   "python": "3.12.13",
   "sistema": "Windows-11-10.0.26200-SP0"
 }
